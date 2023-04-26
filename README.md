@@ -2,19 +2,19 @@
 Simulate gene trees under a model that allows copy number hemiplasy.
 
 # Arguments
---stree
-    type=str
-    help=Path to file with newick formatted species tree to use for simulation. Branch lengths should be in coalescent units.
+*stree
+    +type=str
+    +help=Path to file with newick formatted species tree to use for simulation. Branch lengths should be in coalescent units.
 
---mu_par, type=float, help="Duplication rate."
+*mu_par, type=float, help="Duplication rate."
 
---lambda_par, type=float, help="Loss rate."
+*lambda_par, type=float, help="Loss rate."
 
---reps, type=int, help="Number of gene families to simulate."
+*reps, type=int, help="Number of gene families to simulate."
 
---output, type=str, help="Folder for storing results."
+*output, type=str, help="Folder for storing results."
 
---root_length, type=float, help="Arbitrarily long root for the species tree (should be large enough that all coalescences should occur.)"
+*root_length, type=float, help="Arbitrarily long root for the species tree (should be large enough that all coalescences should occur.)"
 
 
 # Example Usage
