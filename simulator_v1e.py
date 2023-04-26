@@ -47,7 +47,6 @@ def parse_args():
     parser.add_argument('--stree', type=str, help="Path to file with newick formatted species tree to use for simulation. Branch lengths should be in coalescent units.")
     parser.add_argument('--mu_par', type=float, help="Duplication rate.")
     parser.add_argument('--lambda_par', type=float, help="Loss rate.")
-    parser.add_argument('--root_length', type=int, help="Arbitrarily long gene tree root length to use for coalescence.")
     parser.add_argument('--reps', type=int, help="Number of gene families to simulate.")
     parser.add_argument('--output', type=str, help="Folder for storing results.")
     args= parser.parse_args()
@@ -178,7 +177,7 @@ def get_adjacent_copy_numbers(adjacent_edges, all_trees):
         N_adjacent_edges.append(overlapping_trees)
     return(N_adjacent_edges)
 
-# major functions
+
 
 def birth_death(sp_tree, lambda_par, mu_par):
 
@@ -295,7 +294,7 @@ def birth_death(sp_tree, lambda_par, mu_par):
     
     return(sp_tree, total_dups, total_losses, all_trees)
 
-def coalesce_subtrees(all_subtrees, annotated_sp_tree, arbitrarily_long_root):
+def coalesce_subtrees(all_subtrees, annotated_sp_tree):
 
     # get the parent subtree
     parent_subtree = all_subtrees.pop(0)
@@ -305,12 +304,7 @@ def coalesce_subtrees(all_subtrees, annotated_sp_tree, arbitrarily_long_root):
     # list of available subtrees
     available_subtrees = []
     available_subtrees.append(parent_subtree)
-    ## set the root age of the parent gene tree to an arbitrarily long root.
-    #for edge in parent.preorder_edge_iter():
-    #    print(edge.length)
-    #    edge.length = arbitrarily_long_root
-    #    break
-    parent_height = parent.seed_node.distance_from_tip() + arbitrarily_long_root
+    parent_height = parent.seed_node.distance_from_tip() + np.inf
 
     # sort subtrees by age
     ages = []
@@ -327,7 +321,7 @@ def coalesce_subtrees(all_subtrees, annotated_sp_tree, arbitrarily_long_root):
 
     # set the root edge in the species tree to an arbitrarily long length.
     for edge in annotated_sp_tree.preorder_edge_iter():
-        edge.length = arbitrarily_long_root
+        edge.length = np.inf
         break
 
     # set counter to keep track of copy number
@@ -528,10 +522,6 @@ def coalesce_subtrees(all_subtrees, annotated_sp_tree, arbitrarily_long_root):
                 age = branch_to_coalesce[3]
                 del branch_to_coalesce
 
-    #for edge in parent.preorder_edge_iter():
-    #    if not edge.length == None:
-    #        print(edge.lengt)
-    #        break
     return(parent)
       
 def main():
@@ -550,7 +540,6 @@ def main():
     # set the arugments
     lambda_par = args.lambda_par
     mu_par = args.mu_par
-    arbitrarily_long_root = args.root_length
 
     for i in range(args.reps):
 
@@ -572,7 +561,7 @@ def main():
             #print('replicate: %s' % i)
 
             # coalesce
-            simulated_gene_family_tree = coalesce_subtrees(all_trees, annotated_sp_tree, arbitrarily_long_root)
+            simulated_gene_family_tree = coalesce_subtrees(all_trees, annotated_sp_tree)
 
             # print
             write_trees(simulated_gene_family_tree, args.output, str(i))
