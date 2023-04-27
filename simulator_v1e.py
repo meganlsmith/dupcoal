@@ -177,25 +177,24 @@ def get_adjacent_copy_numbers(adjacent_edges, all_trees):
         N_adjacent_edges.append(overlapping_trees)
     return(N_adjacent_edges)
 
-
-
 def birth_death(sp_tree, lambda_par, mu_par):
 
+    # intialize counters
     total_dups = 0
     total_losses = 0
 
+    # sample the parent tree from the MSC
     parent_tree = get_gene_tree(sp_tree)
+
+    # set up list for storing trees, and add the parent tree
     all_trees = []
     all_trees.append(parent_tree)
 
+    # iterate over the edges of the species tree to add duplications and losses.
     for edge in sp_tree.preorder_edge_iter(): 
 
         # get leaves
         sp_leaves = get_leaves(edge)
-
-        # count dups and losses (for annotations)
-        dup_count = 0
-        loss_count = 0
 
         if edge.length == None: # skip root edge
             continue
@@ -216,16 +215,14 @@ def birth_death(sp_tree, lambda_par, mu_par):
         #print("\nBeginning this branch with %s copies" % N)
         #print("This is a branch with length %s" % edge.length)
         
-
         # set tc to 0
         tc = 0.0
-
 
         while tc < edge.length and N > 0:
 
             # draw the time of the next event from an exponential distribution.
             current_scale_parameter =  1/((lambda_par + mu_par)*N)
-            ti = np.random.exponential(scale = current_scale_parameter) # NOTE: DOUBLE CHECK PARAMETERIZATION
+            ti = np.random.exponential(scale = current_scale_parameter)
 
             # decide whether the event happens before the end of the branch
             if ti + tc > edge.length:
@@ -247,21 +244,15 @@ def birth_death(sp_tree, lambda_par, mu_par):
                     # draw a gene tree
                     new_subtree = get_gene_tree(sp_tree)
 
-                    # calculate the event time (time from the base)
-                    event_time = (edge.length - tc) + edge.head_node.age
-
                     # add the duplication
                     mutated_subtree = add_duplication(event_time, sp_leaves, new_subtree)
                     all_trees.append(mutated_subtree)
-                    #for tree in all_trees:
-                    #    print(tree)
 
                     # increase number of copies
                     N = N + 1
 
                     # add info on duplication to edge annotations
-                    edge.annotations['duplication_%s' % dup_count] = [(edge.length - tc) + edge.head_node.age]
-                    dup_count += 1
+                    edge.annotations['duplication_%s' % total_dups] = [(edge.length - tc) + edge.head_node.age]
                     total_dups += 1
 
 
@@ -277,9 +268,8 @@ def birth_death(sp_tree, lambda_par, mu_par):
                     #    print(tree)
 
                     # add info on loss to edge annotations
-                    edge.annotations['loss_%s' % loss_count] = [(edge.length - tc) + edge.head_node.age]
+                    edge.annotations['loss_%s' % total_losses] = [(edge.length - tc) + edge.head_node.age]
 
-                    loss_count += 1
                     total_losses += 1
 
         # update number of copies entering descendant branches. Use get_descendent_edges.
@@ -319,7 +309,7 @@ def coalesce_subtrees(all_subtrees, annotated_sp_tree):
 
 
 
-    # set the root edge in the species tree to an arbitrarily long length.
+    # set the root edge in the species tree to infinity
     for edge in annotated_sp_tree.preorder_edge_iter():
         edge.length = np.inf
         break
