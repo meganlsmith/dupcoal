@@ -45,8 +45,8 @@ def flatten(lst):
 def parse_args():
     parser = argparse.ArgumentParser(description="Simulate gene family trees.")
     parser.add_argument('--stree', type=str, help="Path to file with newick formatted species tree to use for simulation. Branch lengths should be in coalescent units.")
-    parser.add_argument('--mu_par', type=float, help="Duplication rate.")
-    parser.add_argument('--lambda_par', type=float, help="Loss rate.")
+    parser.add_argument('--mu_par', type=float, help="Loss rate.")
+    parser.add_argument('--lambda_par', type=float, help="Duplication rate.")
     parser.add_argument('--reps', type=int, help="Number of gene families to simulate.")
     parser.add_argument('--output', type=str, help="Folder for storing results.")
     args= parser.parse_args()
