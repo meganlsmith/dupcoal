@@ -8,11 +8,11 @@ Simulate gene trees under a model that allows copy number hemiplasy.
 
 * mu_par
     + type = float
-    + help = Duplication rate.
+    + help = loss rate.
 
 * lambda_par
     + type = float
-    + help = Loss rate.
+    + help = duplication rate.
 
 * reps
     + type = int
