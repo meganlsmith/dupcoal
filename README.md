@@ -23,4 +23,4 @@ Simulate gene trees under a model that allows copy number hemiplasy.
     + help = Folder for storing results.
 
 # Example Usage
-python3 simulator_v1e.py --stree sp_tree.tre --mu_par 0.3 --lambda_par 0.5 --reps 100 --output example_trees
+python3 simulator_v1f.py --stree sp_tree.tre --mu_par 0.3 --lambda_par 0.5 --reps 100 --output example_trees
