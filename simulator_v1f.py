@@ -55,21 +55,40 @@ def parse_args():
 def write_trees(tree, outputdir, rep):
     tree.write(path = '%s/rep_%s.tre' % (outputdir, rep), schema="newick", suppress_rooting=True)
 
-def write_log(total_dups, total_losses, outputdir, rep):
+def write_all_trees(trees, outputdir, rep):
+    outfilename = '%s/rep_%s_alltrees.tre' % (outputdir, rep)
+    with open(outfilename, 'w') as f:
+        for tree in trees:
+            thestring = tree.as_string(schema="newick", suppress_rooting=True)
+            f.write(thestring)
+
+
+def write_log(total_dups, total_losses, outputdir, rep, len_trees, table, annotated):
     output_log_name = '%s/rep_%s.log' % (outputdir, rep)
     output_log = open(output_log_name, 'w')
     output_log.write("Replicate: %s\n" % rep)
     output_log.write("Total duplications: %s\n" % str(total_dups))
     output_log.write("Total losses: %s\n" % str(total_losses))
+    if len_trees == 0:
+        output_log.write("All copies were lost.\n")
+    output_log.close()
+    
+    output_table_name = '%s/rep_%s.tsv' % (outputdir, rep)
+    output_table = open(output_table_name, 'w')
+    output_table.write(table)
+    output_table.close()
 
-def write_log_alllost(total_dups, total_losses, outputdir, rep):
-    output_log_name = '%s/rep_%s.log' % (outputdir, rep)
-    output_log = open(output_log_name, 'w')
-    output_log.write("Replicate: %s\n" % rep)
-    output_log.write("Total duplications: %s\n" % str(total_dups))
-    output_log.write("Total losses: %s\n" % str(total_losses))
-    output_log.write("All copies were lost.\n")
+    output_sptree_name = '%s/rep_sptree_%s.nex' % (outputdir, rep)
+    output_sptree = open(output_sptree_name, 'w')
+    output_sptree.write(annotated)
+    output_sptree.close()
 
+
+
+
+
+def check_lists_equality(list1, list2):
+    return set(list1) == set(list2)
 
 def get_gene_tree(annotated_sp_tree):
        # set up machinery for simulating gene trees
@@ -204,7 +223,9 @@ def birth_death(sp_tree, lambda_par, mu_par):
 
     # set up list for storing trees, and add the parent tree
     all_trees = []
+    unmodified_trees = []
     all_trees.append(parent_tree)
+    unmodified_trees.append(parent_tree)
 
     # iterate over the edges of the species tree to add duplications and losses.
     for edge in sp_tree.preorder_edge_iter(): 
@@ -259,6 +280,7 @@ def birth_death(sp_tree, lambda_par, mu_par):
 
                     # draw a gene tree
                     new_subtree = get_gene_tree(sp_tree)
+                    unmodified_trees.append(new_subtree)
 
                     # add the duplication
                     mutated_subtree = add_duplication(event_time, sp_leaves, new_subtree)
@@ -298,7 +320,58 @@ def birth_death(sp_tree, lambda_par, mu_par):
         for edge in range(len(adjacent_edges)):
             adjacent_edges[edge].annotations['copies'] = adjacent_Ns[edge]
     
-    return(sp_tree, total_dups, total_losses, all_trees)
+    return(sp_tree, total_dups, total_losses, all_trees, unmodified_trees)
+
+def create_table(sp_tree, unmodified_trees, all_subtrees):
+
+    # create annotated species tree
+    count = 0
+
+
+    for edge in sp_tree.preorder_edge_iter():
+        edge.annotations.drop()
+        edge.annotations['label'] = count
+        count+=1
+    newly_annotated = sp_tree.as_string(schema="nexus", suppress_annotations = False)
+
+
+    
+
+
+
+    # compare gene trees to the species tree
+    all_branch_data = 'Branch\tParent_1'
+    for item in range(len(unmodified_trees)-1):
+        all_branch_data += '\t'
+        all_branch_data += 'Copy_%s' % str(item+2)
+    for edge in sp_tree.preorder_edge_iter():
+        leaves = get_leaves(edge)
+        if len(leaves) > 1 and len(leaves) < len(sp_tree.leaf_nodes()):
+            #print("Look for edge:")
+            #print(leaves)
+            #print('check the gene trees')
+            branch_data = '%s' % str(edge.annotations['label']).split("=")[1].strip("'")
+            for genetree in unmodified_trees:
+                #print(genetree)
+                found_edge = False
+                for gtedge in genetree.preorder_edge_iter():
+                    if found_edge == False:
+                        gtleaves = get_leaves(gtedge)
+                        intersect_gtleaves = [x.split(' ')[0] for x in gtleaves]
+                        if check_lists_equality(intersect_gtleaves, leaves):
+                            found_edge = True
+                branch_data += '\t'
+                if found_edge:
+                    branch_data += 'True'
+                else:
+                    branch_data += 'False'
+            all_branch_data += '\n'
+            all_branch_data += branch_data
+    #print(len(unmodified_trees))
+
+    return(all_branch_data, newly_annotated, unmodified_trees)
+        
+            
 
 def coalesce_subtrees(all_subtrees, annotated_sp_tree):
 
@@ -440,7 +513,8 @@ def coalesce_subtrees(all_subtrees, annotated_sp_tree):
     
                 # update taxon namespace of new tree
                 for leaf in subtree.leaf_node_iter():
-                    new_taxon = str(leaf.taxon.label).split()[0].strip("'") + ' '+ str(count)
+                    number = sorted_indices[thesubtree] + 2
+                    new_taxon = str(leaf.taxon.label).split()[0].strip("'") + ' '+ str(number)
                     leaf.taxon.label = new_taxon
                     leaf.taxon = dendropy.Taxon(new_taxon)
     
@@ -556,16 +630,17 @@ def main():
         sp_tree = sp_tree_main.clone()
 
         # perform top-down birth death
-        annotated_sp_tree, dup_count, loss_count, all_trees = birth_death(sp_tree, lambda_par, mu_par)
+        annotated_sp_tree, dup_count, loss_count, all_trees, unmodified_trees = birth_death(sp_tree, lambda_par, mu_par)
 
-        #for tree in all_trees:
-        #    print(tree)
-
+        # make table
+        table, annotated_towrite, sorted_unmodified_subtrees = create_table(sp_tree.clone(), unmodified_trees, all_trees)
+        write_log(dup_count, loss_count, args.output, str(i), len(all_trees), table, annotated_towrite)
+        write_all_trees(sorted_unmodified_subtrees, args.output, str(i))
 
         if len(all_trees) == 0:
             print('replicate: %s' % i)
-            print('All copies lost.')
-            write_log_alllost(dup_count, loss_count, args.output, str(i))
+            #print('All copies lost.')
+            #write_log_alllost(dup_count, loss_count, args.output, str(i))
 
 
         else:
@@ -576,7 +651,7 @@ def main():
 
             # print
             write_trees(simulated_gene_family_tree, args.output, str(i))
-            write_log(dup_count, loss_count, args.output, str(i))
+            #write_log(dup_count, loss_count, args.output, str(i))
             del simulated_gene_family_tree
 
 
