@@ -63,12 +63,13 @@ def write_all_trees(trees, outputdir, rep):
             f.write(thestring)
 
 
-def write_log(total_dups, total_losses, outputdir, rep, len_trees, table, annotated):
+def write_log(total_dups, total_losses, outputdir, rep, len_trees, table, annotated, total_ils):
     output_log_name = '%s/rep_%s.log' % (outputdir, rep)
     output_log = open(output_log_name, 'w')
     output_log.write("Replicate: %s\n" % rep)
     output_log.write("Total duplications: %s\n" % str(total_dups))
     output_log.write("Total losses: %s\n" % str(total_losses))
+    output_log.write("Total ILS: %s\n" % str(total_ils))
     if len_trees == 0:
         output_log.write("All copies were lost.\n")
     output_log.close()
@@ -147,6 +148,8 @@ def lose_a_copy(event_time, sp_leaves, all_trees):
     edge_trees = []
     edge_tree_indices = []
     tree_count = -1
+    #print('The event time: %s' % event_time)
+    #print(sp_leaves)
 
     for available_subtree in all_trees:
         #print(available_subtree)
@@ -157,6 +160,7 @@ def lose_a_copy(event_time, sp_leaves, all_trees):
         for gtedge in available_subtree.preorder_edge_iter():
             #print('\nProcessing a gene tree edge')
             relevant_time_frame = [gtedge.head_node.age, gtedge.head_node.age + gtedge.length]
+            #print(relevant_time_frame)
             #print(relevant_time_frame)
             if event_time > relevant_time_frame[0] and event_time < relevant_time_frame[1]:
                 gtleaves = []
@@ -171,6 +175,7 @@ def lose_a_copy(event_time, sp_leaves, all_trees):
     #print(len(potential_edges))
 
     # sample an edge
+    #print(len(potential_edges))
     the_edge_index = random.randint(0, len(potential_edges) - 1)
     the_edge = potential_edges[the_edge_index]
     the_tree = edge_trees[the_edge_index]
@@ -200,26 +205,58 @@ def lose_a_copy(event_time, sp_leaves, all_trees):
 
 def get_adjacent_copy_numbers(adjacent_edges, all_trees):
     """Figure out how many copies are in each edge using the gene trees."""
+    #print('Getting adjacent edges!')
     N_adjacent_edges = []
     for edge in adjacent_edges:
         edge_leaves = get_leaves(edge)
+        #print('Edge!:')
+        #print(edge_leaves)
         # how many of our trees have overlap in the descendents
         overlapping_trees = 0
         for tree in all_trees:
+            #print('check tree:')
+            #print(tree)
             gt_leaves = get_all_leaves(tree)
             if len(intersection(edge_leaves, gt_leaves)) > 0:
                 overlapping_trees+=1
+                #print('We have a copy!')
         N_adjacent_edges.append(overlapping_trees)
+    #print(N_adjacent_edges)
     return(N_adjacent_edges)
+
+def check_dc(mutated_subtree, sp_tree):
+
+    dc_count = 0
+
+    for edge in mutated_subtree.preorder_edge_iter():
+
+        leaves = get_leaves(edge)
+        leaves = [x.split()[0] for x in leaves]
+        
+        found_in_sp_tree = False
+
+        for spedge in sp_tree.preorder_edge_iter():
+            spleaves = get_leaves(spedge)
+            current_check = check_lists_equality(spleaves, leaves)
+            if current_check == True:
+                found_in_sp_tree = True
+        
+        if found_in_sp_tree == False:
+            dc_count += 1
+
+    return(dc_count)
+
 
 def birth_death(sp_tree, lambda_par, mu_par):
 
     # intialize counters
     total_dups = 0
     total_losses = 0
+    total_ils = 0
 
     # sample the parent tree from the MSC
     parent_tree = get_gene_tree(sp_tree)
+    total_ils += check_dc(parent_tree, sp_tree)
 
     # set up list for storing trees, and add the parent tree
     all_trees = []
@@ -232,6 +269,8 @@ def birth_death(sp_tree, lambda_par, mu_par):
 
         # get leaves
         sp_leaves = get_leaves(edge)
+        #print('We are on this edge: ')
+        #print(sp_leaves)
 
         if edge.length == None: # skip root edge
             continue
@@ -243,9 +282,19 @@ def birth_death(sp_tree, lambda_par, mu_par):
         # get number of copies
         N=int(str(edge.annotations['copies']).split("=")[1].strip("'"))
 
+
         if N == 0:
             # stop because we start this branch with no copies.
-            #print("\nBeginning this branch with %s copies. STOP birth-death." % N)
+            # update number of copies entering descendant branches. Use get_descendent_edges.
+            adjacent_edges = get_descendent_edges(edge)
+
+            # for each descendent edge, see how many subtrees are present and annotate accordingly
+            adjacent_Ns = get_adjacent_copy_numbers(adjacent_edges, all_trees)
+
+            # update numbers only for descendant nodes. 
+            for edge in range(len(adjacent_edges)):
+                adjacent_edges[edge].annotations['copies'] = adjacent_Ns[edge]
+
             continue
 
 
@@ -281,11 +330,16 @@ def birth_death(sp_tree, lambda_par, mu_par):
                     # draw a gene tree
                     new_subtree = get_gene_tree(sp_tree)
                     unmodified_trees.append(new_subtree)
+                    #print(new_subtree)
 
                     # add the duplication
                     mutated_subtree = add_duplication(event_time, sp_leaves, new_subtree)
                     all_trees.append(mutated_subtree)
+                    #print(mutated_subtree)
 
+                    #check whether branches of the mutated subtree are present in the species tree.
+                    total_ils += check_dc(mutated_subtree, sp_tree)
+                    
                     # increase number of copies
                     N = N + 1
 
@@ -320,7 +374,9 @@ def birth_death(sp_tree, lambda_par, mu_par):
         for edge in range(len(adjacent_edges)):
             adjacent_edges[edge].annotations['copies'] = adjacent_Ns[edge]
     
-    return(sp_tree, total_dups, total_losses, all_trees, unmodified_trees)
+    #print(total_ils)
+
+    return(sp_tree, total_dups, total_losses, all_trees, unmodified_trees, total_ils)
 
 def create_table(sp_tree, unmodified_trees, all_subtrees):
 
@@ -630,11 +686,11 @@ def main():
         sp_tree = sp_tree_main.clone()
 
         # perform top-down birth death
-        annotated_sp_tree, dup_count, loss_count, all_trees, unmodified_trees = birth_death(sp_tree, lambda_par, mu_par)
+        annotated_sp_tree, dup_count, loss_count, all_trees, unmodified_trees, ils_count = birth_death(sp_tree, lambda_par, mu_par)
 
         # make table
         table, annotated_towrite, sorted_unmodified_subtrees = create_table(sp_tree.clone(), unmodified_trees, all_trees)
-        write_log(dup_count, loss_count, args.output, str(i), len(all_trees), table, annotated_towrite)
+        write_log(dup_count, loss_count, args.output, str(i), len(all_trees), table, annotated_towrite, ils_count)
         write_all_trees(sorted_unmodified_subtrees, args.output, str(i))
 
         if len(all_trees) == 0:
