@@ -1,6 +1,8 @@
 # Copy Number Hemiplasy Simulator
 Simulate gene trees under a model that allows copy number hemiplasy.
 
+For an extended description of the simulator, please see 'Extended_Description_v1a.pdf'.
+
 # Arguments
 * stree
     + type = str
