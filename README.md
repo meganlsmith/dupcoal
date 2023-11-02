@@ -1,4 +1,4 @@
-# Copy Number Hemiplasy Simulator
+# dupcoal
 Simulate gene trees under a model that allows copy number hemiplasy.
 
 For an extended description of the simulator, please see 'Extended_Description_v1a.pdf'.
@@ -43,4 +43,4 @@ For an extended description of the simulator, please see 'Extended_Description_v
 * All ILS (DLCPar): This includes the number of parent or daughter trees that are discordant and the number of times that a subtree joined a branch that did not match it in terms of taxon composition.
 
 # Example Usage
-python3 simulator_v1h.py --stree sp_tree.tre --mu_par 0 --lambda_par 0.3 --reps 10 --output example
+python3 dupcoal_v2.0.0.py --stree sp_tree.tre --mu_par 0 --lambda_par 0.3 --reps 10 --output example
