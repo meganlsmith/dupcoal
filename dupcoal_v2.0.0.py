@@ -388,6 +388,9 @@ def birth_death(sp_tree, lambda_par, mu_par):
     unmodified_trees.append(parent_tree)
 
     # iterate over the edges of the species tree to add duplications and losses.
+    if lambda_par == 0 and mu_par == 0:
+        return(sp_tree, total_dups, total_losses, all_trees, unmodified_trees, hemiplasy, rk_hemiplasy, ils, ils_dlcpar)
+
     for edge in sp_tree.preorder_edge_iter(): 
 
         # get leaves
