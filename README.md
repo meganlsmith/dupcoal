@@ -44,3 +44,12 @@ For an extended description of the simulator, please see 'Extended_Description_v
 
 # Example Usage
 python3 dupcoal_v2.0.0.py --stree sp_tree.tre --mu_par 0 --lambda_par 0.3 --reps 10 --output example
+
+
+# Version 2
+In version 2, we will track lineages instead of copies by recursively generating duplicates.
+1. draw a parent tree
+2. place duplications on the parent tree
+3. generate daughter trees
+4. join daughter trees and parent tree
+5. repeat 1-4 for daughter trees
