@@ -53,3 +53,5 @@ In version 2, we will track lineages instead of copies by recursively generating
 3. generate daughter trees
 4. join daughter trees and parent tree
 5. repeat 1-4 for daughter trees
+
+python3 dupcoal_v3.0.0.py --stree sp_tree.tre --mu_par 0 --lambda_par 0.3 --reps 10 --output test
