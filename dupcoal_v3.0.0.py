@@ -7,6 +7,312 @@ import copy
 import io
 import argparse
 import os
+from collections import deque
+
+
+class SubtreeNode:
+    def __init__(self, tree, name=None):
+        """
+        A node to represent a subtree with metadata.
+        
+        Args:
+        - tree: The actual tree (e.g., a DendroPy tree or a string placeholder).
+        - name: Optional string for naming the subtree (for identification).
+        """
+        self.tree = tree
+        self.name = name
+        self.children = []    # List of child SubtreeNodes
+        self.parent = None    # Reference to the parent SubtreeNode
+
+    def add_child(self, child_node):
+        """Add a child node and set its parent."""
+        child_node.parent = self
+        self.children.append(child_node)
+
+    def post_order_traversal(self, node):
+        """
+        Perform a post-order traversal (tips to root) of the subtree hierarchy.
+
+        Args:
+        - node: The current SubtreeNode to process.
+
+        Returns:
+        - None: Prints each subtree during traversal.
+        """
+        # Visit all children first
+        for child in node.children:
+            self.post_order_traversal(child)
+
+        # Then process the current node
+        print(f"Node: {node.name}, Tree: {node.tree}")
+
+    def find_node_by_name(self, node, name):
+        """
+        Find a node in the tree by its name.
+
+        Args:
+        - node: The current SubtreeNode to search.
+        - name: The name of the node to find.
+
+        Returns:
+        - SubtreeNode: The node with the matching name, or None if not found.
+        """
+        if node.name == name:
+            return node
+
+
+        for child in node.children:
+            found_node = self.find_node_by_name(child, name)  # Recursive call
+            if found_node:
+                return found_node
+
+    def level_order_traversal_bottom_up(self, root, sp_tree):
+        """
+        Perform a level-order traversal (from tips to root).
+
+        Args:
+        - root: The root SubtreeNode of the tree structure.
+
+        Returns:
+        - None: Prints each subtree during traversal, starting from the tips.
+        """
+        # set a counter for naming copies
+        copyid = 0
+
+        # Create a queue for level-order traversal
+        queue = deque([(root, 0)])  # (node, depth)
+        levels = {}  # To store nodes by level (depth)
+
+        # Standard level-order traversal, recording levels
+        while queue:
+            node, depth = queue.popleft()
+
+            if depth not in levels:
+                levels[depth] = []
+
+            levels[depth].append(node)
+
+            # Add children to the queue
+            for child in node.children:
+                queue.append((child, depth + 1))
+
+        # Process the levels in reverse order (tips to root)
+        for depth in sorted(levels.keys(), reverse=True):
+            for node in levels[depth]:
+                #print(f"Depth {depth}: Node: {node.name}, Tree: {node.tree}")
+
+                # Do what we need to do (i.e., coalesce to parent)
+                if not depth==0:
+                    print(f"Coalesce this daughter tree {node.tree}.")
+                    print(f"Coalesce it to its parent: {node.parent.tree}")
+                    copyid+=1
+
+
+                    age = node.tree.minmax_leaf_distance_from_root()[0]
+                    original_age = age
+
+                    # get the list of leaves in the subtree.
+                    subtree_leaves = [str(x.taxon).split()[0].strip("'") for x in node.tree.leaf_nodes()]
+                    print(subtree_leaves)
+
+                    # Boolean to track whether we have managed to coalesce.
+                    coalesced = False
+
+                    # Use a while loop to find a place to coalesce the subtree.
+                    while coalesced == False:
+
+                        # Find the branch of the species tree on which coalescence should happen.
+                        species_tree_height = sp_tree.seed_node.distance_from_tip()
+                        parent_height = node.parent.tree.seed_node.distance_from_tip()
+
+                        # check if age greater than parent height
+                        if age > parent_height:
+                            coalesced = "Failed"
+
+                        # iterate over the edges, and check the timing of events against the age of the duplication and the leaves that should be present.
+                        for edge in sp_tree.preorder_edge_iter():
+                            min_age = edge.head_node.distance_from_tip()
+                            try:
+                                max_age = edge.tail_node.distance_from_tip()
+                            except:
+                                max_age = np.inf
+                            if age >= min_age and age < max_age:
+                                leaves = get_leaves(edge)
+                                leaves_match = ['%s 1' % x for x in leaves]
+                                if len(intersection(leaves, subtree_leaves))> 0:
+                                    # record the branch that is present at the correct time and has the correct leaves as the branch_to_coalesce.
+                                    branch_to_coalesce = [edge, leaves, min_age, max_age, max_age - age]
+                                    original_branch_leaves = leaves
+
+                        # Boolean to note whether we still need to look for the coalescence edge.
+                        find_edge_to_coal = True
+                        # while loop to find the edge of the parent gene tree that we should coalesce to.
+                        while find_edge_to_coal == True:
+                            # list to store edge heights (so we can know when first coalescent event happens)
+                            edge_heights = []
+                            possible_edges_to_coalesce = []
+                            # iterate over the edges, and check the timing of events against the age of the duplication and the leaves that should be present.
+                            for edge in node.parent.tree.levelorder_edge_iter():
+                                min_age = edge.head_node.distance_from_tip()
+                                try:
+                                    max_age = edge.tail_node.distance_from_tip()
+                                except:
+                                    max_age = parent_height
+
+                                if age >= min_age and age < max_age:
+                                    leaves = get_leaves(edge)
+                                    intersect_leaves = [x.split()[0].strip("'") for x in leaves]
+                                    if len(intersection(intersect_leaves, branch_to_coalesce[1]))> 0:
+                                        possible_edges_to_coalesce.append([edge, leaves, min_age, max_age])
+                                        edge_heights.append(max_age)
+
+                                # draw a coalescent time
+                                combinations = len(possible_edges_to_coalesce)
+                                tcoal = np.random.exponential(scale = 1/combinations)
+                                my_edge_min= min(edge_heights)
+
+                                # do we coalesce before the shortest edge ends?
+                                if tcoal+age > my_edge_min and find_edge_to_coal == True:
+                                    if tcoal+age > branch_to_coalesce[3]: # I am conffused about  why I used the below instead of this but I am too tired to solve it right n ow.
+                                        # failed to coalesce
+                                    branch_to_coalesce[-1] = branch_to_coalesce[3] - my_edge_min
+#                                    if branch_to_coalesce[-1] <= 0:
+#                                        # if we have failed and are now in a different edge of the species tree, we can break the parent gene tree loop and go get the new branch of the species tree.
+#                                        find_edge_to_coal = False
+#                                        tcoal = np.inf
+#                                    else:
+#                                        # otherwise, set the new age to the minimum edge height.
+#                                        age = my_edge_min
+#
+#                                        if age 
+#
+#                                else:
+#                                    # if we haven't failed, then we know which edge to coalesce to.
+#                                    find_edge_to_coal = False
+#
+                        coalesced = True
+
+
+
+
+
+
+
+
+
+#
+#
+#            # did coalescence happen in this branch?
+#            if tcoal < branch_to_coalesce[-1]:
+#                #print('we coalesced')
+#
+#                # select an edge from available at random
+#                the_coalesced_edge_info = random.sample(possible_edges_to_coalesce, k=1)[0]
+#                the_coalesced_edge = the_coalesced_edge_info[0]
+#
+#                # check for deep coalescence due to branch mismatch
+#                ils_joining_current = check_ils_joining(the_coalesced_edge, subtree_leaves)
+#                ils_joining += ils_joining_current
+#                ils_joining_dlcpar += ils_joining_current
+#
+#                # count number of nni moves
+#                if ils_joining_current > 0:
+#                    sp_copy = copy.deepcopy(annotated_sp_tree)
+#                    nni_joining_current = check_nni_joining(the_coalesced_edge=the_coalesced_edge, subtreeleaves=subtree_leaves, ref_tree=sp_copy)
+#                    nni_joining+=nni_joining_current
+#
+#    
+#                # update taxon namespace of new tree
+#                for leaf in subtree.leaf_node_iter():
+#                    number = sorted_indices[thesubtree] + 2
+#                    new_taxon = str(leaf.taxon.label).split()[0].strip("'") + ' '+ str(number)
+#                    leaf.taxon.label = new_taxon
+#                    leaf.taxon = dendropy.Taxon(new_taxon)
+#    
+#                # adjust branch length to account for any failures to coalesce to the initial parent branches
+#                for edge in subtree.preorder_edge_iter():
+#                    new_length = age - (edge.head_node.distance_from_tip()+edge.length) + edge.length
+#                    edge.length = new_length
+#                    break
+#                    
+#
+#                # adjust branch length in subtree to include coalescence time
+#                for edge in subtree.preorder_edge_iter():
+#                    edge.length = edge.length + tcoal
+#                    total_edge = edge.length
+#                    total_height = edge.head_node.distance_from_tip() + edge.length
+#                    break
+#
+#                # adjust branch length in parent tree
+#                for edge in parent.preorder_edge_iter():
+#                     if edge == the_coalesced_edge:
+#                        if edge.length == None:
+#                            edge.length = total_height - edge.head_node.distance_from_tip()
+#                            previous_edge = edge.length
+#                        elif edge.length < total_height - edge.head_node.distance_from_tip():
+#                            edge.length = total_height - edge.head_node.distance_from_tip()
+#                            previous_edge = edge.length   
+#                        else:
+#                            previous_edge = edge.length
+#                            edge.length = total_height - edge.head_node.distance_from_tip()
+#
+#                        # branch lengths for daughter nodes
+#                        
+#                        this_new_length = edge.length
+#                        
+#                # get relevant nodes
+#                original_child = the_coalesced_edge.head_node
+#                original_parent_node = the_coalesced_edge.tail_node
+#
+#                # create new subtree
+#                new_subtree = dendropy.Tree()
+#                for item in subtree.taxon_namespace:
+#                    new_subtree.taxon_namespace.add_taxon(item)
+#                for item in parent.taxon_namespace:
+#                    new_subtree.taxon_namespace.add_taxon(item)
+#                if previous_edge - this_new_length < 0:
+#                    sys.exit('noooo whyyy')
+#                cnode = new_subtree.seed_node.new_child(edge_length = previous_edge - this_new_length)
+#                cnode.add_child(subtree)
+#                cnode.add_child(original_child)
+#
+#                # add new subtree to old subtree
+#                if the_coalesced_edge.head_node == parent.seed_node:
+#                    parent = new_subtree
+#                    #print('doing this')
+#                    #print(parent)
+#                else:
+#                    original_parent_node.remove_child(original_child)
+#                    original_parent_node.add_child(new_subtree)
+#                    #print('doing that')
+#                    #print(parent)
+#
+#                coalesced = True
+#                
+#                # reformat tree
+#                output_stream = io.StringIO()
+#                sys.stdout = output_stream
+#
+#                # convert the tree to a string and print it
+#                print(str(parent))
+##
+#                # redirect stdout back to its original destination
+#                sys.stdout = sys.__stdout__
+##
+#                # read the captured output from the IOStream object
+#                output = output_stream.getvalue()
+#                output = output + ';'
+#
+#                # print the captured output
+#                parent = dendropy.Tree.get(data=output, schema="newick")
+#                parent.calc_node_ages()
+#
+#    
+#
+#            else:
+#                age = branch_to_coalesce[3]
+#                del branch_to_coalesce
+
 
 class mlmsc:
     def __init__(self, sp_tree, lambda_par):
@@ -16,12 +322,61 @@ class mlmsc:
     def generate(self):
 
         # sample the parent tree from the MSC
-        print(f"Working with species tree {self.sp_tree}")
         parent_tree = self._get_gene_tree()
-        print(f"Generating duplications on {parent_tree}.")
+
+        # store in tree
+        root = SubtreeNode(tree=parent_tree, name="Root")
 
         # place duplications on tree
-        self._birth_death_mlmsc(parent_tree)
+        original_subtrees, mutated_subtrees = self._birth_death_mlmsc(parent_tree)
+
+        # process mutated subtrees iteratively
+        to_process = mutated_subtrees  # List of subtrees to process
+        all_original_subtrees = original_subtrees  # Keep track of all original subtrees
+        all_mutated_subtrees = mutated_subtrees
+
+        # add to tree
+        for subtree in mutated_subtrees:
+            subtree_str = SubtreeNode(subtree, name=subtree.as_string(schema="newick").strip())
+            #print(f"Adding subtree {subtree_str.name}.")
+            root.add_child(subtree_str)
+
+        while to_process:
+            # get the next subtree to process
+            current_subtree = to_process.pop(0)
+            #print(f"Processing subtree {current_subtree.as_string(schema="newick").strip()}")
+
+            # generate duplications for the current subtree
+            new_original, new_mutated = self._birth_death_mlmsc(current_subtree)
+
+            # add new original subtrees to the overall list
+            all_original_subtrees.extend(new_original)
+            all_mutated_subtrees.extend(new_mutated)
+
+            # add to tree
+            for subtree in new_mutated:
+                subtree_str = SubtreeNode(subtree, name=subtree.as_string(schema="newick").strip())
+                get_parent = root.find_node_by_name(root, current_subtree.as_string(schema="newick").strip())
+                #print(f"Adding to {current_subtree.as_string(schema="newick").strip()}")
+                #print(get_parent)
+                get_parent.add_child(subtree_str)
+                #print(f"Adding subtree {subtree_str.name}")
+
+            # add newly mutated subtrees to the processing queue
+            to_process.extend(new_mutated)
+        return(root)
+
+    def coalesce(self, root):
+        """Coalesce subtrees."""
+
+        # set the root edge in the species tree to infinity
+        for edge in self.sp_tree.preorder_edge_iter():
+            edge.length = np.inf
+            break
+
+        # iterate over the loci. Begin at the tips (with the last round of duplication), and process all tips before moving to the next level. End at the root.
+        root.level_order_traversal_bottom_up(root, self.sp_tree)
+
 
     def _get_gene_tree(self):
         gene_to_species_map = dendropy.TaxonNamespaceMapping.create_contained_taxon_mapping(
@@ -36,11 +391,11 @@ class mlmsc:
     def _birth_death_mlmsc(self, parent_tree):
 
         original_locus_trees = []
+        mutated_locus_trees = []
 
         for edge in parent_tree.preorder_edge_iter():
 
-            locus_leaves = self._get_leaves(edge)
-            print(f"Working on the locus edge with leaves {locus_leaves}.")
+            locus_leaves = get_leaves(edge)
 
             if edge.length == None: # skip root edge
                 continue
@@ -57,67 +412,27 @@ class mlmsc:
                 # check whether event occurs on edge
                 if tc + ti < edge.length:
 
-                    print('duplication!')
-
                     # calculate the event age (time from the present)
                     event_age = (edge.length - (tc+ti)) + edge.head_node.age
 
                     # get the possible leaves from the species tree
                     sp_leaves = self._get_leaves_from_species(locus_leaves, event_age)
-                    print(f"The duplication occurred on {self._get_leaves(edge)} at age {event_age}, corresponding to species tree edge leading to {sp_leaves}.")
 
                     # draw a daugther gene tree
                     new_locus_tree = self._get_gene_tree()
-                    print(f"New locus tree {new_locus_tree}")
                     original_locus_trees.append(new_locus_tree)
 
                     # add the duplication
                     mutated_subtree = self._add_duplication(event_age, sp_leaves, new_locus_tree)
-                    print(f"Mutated locus tree {mutated_subtree}")
-
-                    # now we have to de
+                    mutated_locus_trees.append(mutated_subtree)
 
                 tc += ti
 
-#
-#                    
-#
-#                    
-#                   
-#
-#                   
-#
-#                    
-#                    print(mutated_subtree)
-#                        #all_trees.append(mutated_subtree)
-#                        ##print(mutated_subtree)
-#    #
-#                        ##check whether branches of the mutated subtree are present in the species tree.
-#                        #hemiplasy_count,mutation_dc_count = check_hemiplasy(mutated_subtree, sp_tree)
-#                        #hemiplasy += hemiplasy_count
-#                        #rk_hemiplasy += mutation_dc_count
-#                        ##print(mutated_subtree)
-#                        ##print("This is my hemiplasy indicator: ", hemiplasy_count)
-#                        #current_ils, current_ils_dlcpar = count_ils_daughter(gene_tree = mutated_subtree, sp_tree=sp_tree)
-#                        #ils += current_ils
-#                        #ils_dlcpar += current_ils_dlcpar
-#                        ##print(sp_tree)
-#                        ##print(mutated_subtree)
-#                        ##print(current_ils, current_ils_dlcpar)
-#                        ## increase number of copies
-#                        #N = N + 1
-#    #
-#                        ## add info on duplication to edge annotations
-#                        #edge.annotations['duplication_%s' % total_dups] = [(edge.length - tc) + edge.head_node.age]
-#                        #total_dups += 1
-#
-                
+        return(original_locus_trees, mutated_locus_trees)
 
-    def _get_leaves(self, edge):
-        leaves = []
-        for leaf in edge.head_node.leaf_iter():
-            leaves.append(str(leaf.taxon).strip("'"))
-        return(leaves)
+
+
+
     
     def _get_leaves_from_species(self, locus_leaves, event_age):
 
@@ -128,10 +443,10 @@ class mlmsc:
         for edge in self.sp_tree.preorder_edge_iter():
             if edge.tail_node != None:
                 relevant_time_frame = [edge.head_node.age, edge.head_node.age + edge.length]
-                if event_age > relevant_time_frame[0] and event_age < relevant_time_frame[1] and set(locus_leaves_comp).issubset(set(self._get_leaves(edge))):
-                    relevant_leaves = self._get_leaves(edge)
+                if event_age > relevant_time_frame[0] and event_age < relevant_time_frame[1] and set(locus_leaves_comp).issubset(set(get_leaves(edge))):
+                    relevant_leaves = get_leaves(edge)
             else:
-                all_leaves = self._get_leaves(edge)
+                all_leaves = get_leaves(edge)
         
         if len(relevant_leaves) == 0:
             relevant_leaves = all_leaves
@@ -146,7 +461,7 @@ class mlmsc:
             if gtedge.tail_node != None:
                 relevant_time_frame = [gtedge.head_node.age, gtedge.head_node.age + gtedge.length]
                 if event_age > relevant_time_frame[0] and event_age < relevant_time_frame[1]:
-                    gt_leaves = [x.split()[0] for x in self._get_leaves(gtedge)]
+                    gt_leaves = [x.split()[0] for x in get_leaves(gtedge)]
                     if set(gt_leaves).issubset(sp_leaves):
                         potential_edges.append(gtedge)
 
@@ -182,6 +497,15 @@ class mlmsc:
         return(subtree)
 
 
+# utility functions using
+
+def get_leaves_node(node):
+    leaves = []
+    for leaf in node.leaf_iter():
+        leaves.append(str(leaf.taxon).strip("'"))
+    return(leaves)
+
+
 # utility functions
 def get_descendent_edges(edge):
     """
@@ -200,11 +524,7 @@ def get_leaves(edge):
         leaves.append(str(leaf.taxon).strip("'"))
     return(leaves)
 
-def get_leaves_node(node):
-    leaves = []
-    for leaf in node.leaf_iter():
-        leaves.append(str(leaf.taxon).strip("'"))
-    return(leaves)
+
 
 def get_all_leaves(tree):
     leaves = []
@@ -1042,7 +1362,8 @@ def main():
 
         # perform top-down birth death under the modified model
         mlmsc_simulator = mlmsc(sp_tree, lambda_par)
-        mlmsc_simulator.generate()
+        simulated_trees = mlmsc_simulator.generate()
+        mlmsc_simulator.coalesce(simulated_trees)
         
         #annotated_sp_tree, dup_count, loss_count, all_trees, unmodified_trees, hemiplasy, rk_hemiplasy, ils, ils_dlcpar = birth_death(sp_tree, lambda_par, mu_par)
 
