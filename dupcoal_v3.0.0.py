@@ -67,7 +67,6 @@ class SubtreeNode:
                 return found_node
 
     def get_tree_height(self, tree):
-        print(tree)
         for node in tree.preorder_node_iter():
             height = node.age
             break
@@ -112,10 +111,10 @@ class SubtreeNode:
         for edge in sp_tree.preorder_edge_iter():
             edge.length = np.inf
             break
-        root_tree = self.find_node_by_name(root, "Root")
-        for edge in root_tree.tree.preorder_edge_iter():
-            edge.length = np.inf
-            break
+        #root_tree = self.find_node_by_name(root, "Root")
+        #for edge in root_tree.tree.preorder_edge_iter():
+        #    edge.length = np.inf
+        #    break
 
         # Process the levels in reverse order (tips to root)
         for depth in sorted(levels.keys(), reverse=True):
@@ -186,7 +185,7 @@ class SubtreeNode:
                             combinations = len(possible_edges_to_coalesce)
                             tcoal = np.random.exponential(scale = 1/combinations)
                             my_edge_min= min(edge_heights)
-                            print(f"Drew a coalescent time of {tcoal}, which we will now compare to {branch_to_coalesce[3]} and {parent_height} and {my_edge_min}")
+                            print(f"Drew a coalescent time of {tcoal}, for a height of {tcoal+age}, which we will now compare to {branch_to_coalesce[3]} and {parent_height} and {my_edge_min}")
 
                             # do we coalesce before the shortest edge ends?
                             if tcoal+age > my_edge_min and find_edge_to_coal == True:
@@ -220,6 +219,7 @@ class SubtreeNode:
                             the_coalesced_edge = the_coalesced_edge_info[0]
                             # get relevant nodes
                             original_child = the_coalesced_edge.head_node
+                            original_edge_length = the_coalesced_edge.length
                             original_parent_node = the_coalesced_edge.tail_node
 
                             # update taxon namespace of new tree
@@ -244,80 +244,60 @@ class SubtreeNode:
 
                             print(f"The tree to coalesce is {node.tree} with height {total_height}")
 
-                            # adjust branch length in parent tree
+#                            # adjust branch length in parent tree
                             for edge in node.parent.tree.preorder_edge_iter():
                                  if edge == the_coalesced_edge:
-                                    if edge.length == None:
-                                        edge.length = total_height - edge.head_node.distance_from_tip()
-                                        previous_edge = edge.length
-                                    elif edge.length < total_height - edge.head_node.distance_from_tip():
-                                        edge.length = total_height - edge.head_node.distance_from_tip()
-                                        previous_edge = edge.length   
-                                    else:
-                                        previous_edge = edge.length
-                                        edge.length = total_height - edge.head_node.distance_from_tip()
+                                     previous_edge = edge.length
+                                     edge.length = total_height - edge.head_node.distance_from_tip()
+#                                    if edge.length == None:
+#                                        edge.length = total_height - edge.head_node.distance_from_tip()
+#                                        previous_edge = edge.length
+#                                    elif edge.length < total_height - edge.head_node.distance_from_tip():
+#                                        edge.length = total_height - edge.head_node.distance_from_tip()
+#                                        previous_edge = edge.length   
+#                                    else:
+#                                        previous_edge = edge.length
+#                                        edge.length = total_height - edge.head_node.distance_from_tip()
+#
+#                                    # branch lengths for daughter nodes
+#
+#                                    this_new_length = edge.length
 
-                                    # branch lengths for daughter nodes
-
-                                    this_new_length = edge.length
                             print(f"The tree to coalesce to is {node.parent.tree} at branch {the_coalesced_edge_info}")
 
-
+                            # get relevant nodes
+                            original_child = the_coalesced_edge.head_node
+                            original_parent_node = the_coalesced_edge.tail_node
 
                             # create new subtree
                             new_subtree = dendropy.Tree()
-
-                            for leaf in node.tree.leaf_node_iter():
-                                new_subtree.taxon_namespace.add_taxon(leaf.taxon)
-                            for leaf in node.parent.tree.leaf_node_iter():
-                                new_subtree.taxon_namespace.add_taxon(leaf.taxon)
-
-
-                            cnode = new_subtree.seed_node.new_child(edge_length = previous_edge - this_new_length)
-                            node.tree.deroot()
+                            for item in node.tree.taxon_namespace:
+                                new_subtree.taxon_namespace.add_taxon(item)
+                            for item in node.parent.tree.taxon_namespace:
+                                new_subtree.taxon_namespace.add_taxon(item)
+                            cnode = new_subtree.seed_node.new_child(edge_length = previous_edge - total_height)
                             cnode.add_child(node.tree.seed_node)
                             cnode.add_child(original_child)
-                            print(f"We are have created this subtree tree {new_subtree}")
 
+
+                            print(f"We have created the new subtree: {new_subtree}.")
 
                             # add new subtree to old subtree
                             if the_coalesced_edge.head_node == node.parent.tree.seed_node:
-                                print('done')
                                 node.parent.tree = new_subtree
+                                #print('doing this')
+                                #print(parent)
                             else:
-                                # THIS IS BROKEN TODO
-                                print("add some more stuff")
-                                new_parent_tree = dendropy.Tree()
-
-                                print(original_child)
-                                #original_parent_node.remove_child(original_child)
-                                print(node.parent.tree)
-                                #for subtree_child in new_subtree.preorder_node_iter():
-                                #    print(subtree_child)
-                                #    original_parent_node.add_child(subtree_child)
-                                original_parent_node.add_child(new_subtree.seed_node)
+                                original_parent_node.remove_child(original_child)
+                                original_parent_node.add_child(new_subtree)
+                                #print('doing that')
+                                #print(parent)
+                            print(f"The updated parent tree is: {node.parent.tree}.")
 
                             coalesced = True
 
-                            # reformat tree
-                            output_stream = io.StringIO()
-                            sys.stdout = output_stream
 
-                            # convert the tree to a string and print it
-                            print(str(node.parent.tree))
 
-                            # redirect stdout back to its original destination
-                            sys.stdout = sys.__stdout__
-
-                            # read the captured output from the IOStream object
-                            output = output_stream.getvalue()
-                            output = output + ';'
-                            print(output)
-
-                            # print the captured output
-                            node.parent.tree = dendropy.Tree.get(data=output, schema="newick")
-                            node.parent.tree.calc_node_root_distances()
-                            node.parent.tree.calc_node_ages()
 
                         elif tcoal+age > branch_to_coalesce[3] and tcoal+age < parent_height:
                             # we failed to coalesce in this branch of the species tree
@@ -335,10 +315,11 @@ class SubtreeNode:
                                 print(f"We failed to coalesce to the root tree, which is unacceptable.")
                             # find parent's parent
                             parent_info = self.find_node_by_name(root, node.parent.tree.as_string(schema="newick").strip())
+                            node.parent = parent_info.parent
 
                             print(f"This tree now will try to coalesce with {parent_info.parent.tree}.")
                             print()
-
+                            levels[depth-1].append(node)
                             # this is where we should update thge height inthe subtree and add it to the dictionary at the right depth
 
 
