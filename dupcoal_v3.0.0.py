@@ -70,8 +70,8 @@ class SubtreeNode:
                 return found_node
 
     def get_tree_height(self, tree):
-        for node in tree.preorder_node_iter():
-            height = node.age
+        for thenode in tree.preorder_node_iter():
+            height = thenode.age
             break
         for edge in tree.preorder_edge_iter():
             if edge.length is None:
@@ -121,6 +121,14 @@ class SubtreeNode:
 
         # Process the levels in reverse order (tips to root)
         for depth in sorted(levels.keys(), reverse=True):
+            
+            levelheights = []
+            for theitem in levels[depth]:
+                levelheights.append(self.get_tree_height(theitem.tree))
+            sorted_pairs = sorted(zip(levelheights, levels[depth]), key=lambda x: x[0], reverse=True)
+            sorted_ages, sorted_levels = zip(*sorted_pairs)
+            levels[depth] = list(sorted_levels)
+
             for node in levels[depth]:
                 #print(f"Depth {depth}: Node: {node.name}, Tree: {node.tree}")
 
@@ -265,7 +273,7 @@ class SubtreeNode:
                                  if edge == the_coalesced_edge:
                                     if edge.length == None:
                                         edge.length = total_height - edge.head_node.distance_from_tip()
-                                        previous_edge = edge.length
+                                        
                                     elif edge.length < total_height - edge.head_node.distance_from_tip():
                                         edge.length = total_height - edge.head_node.distance_from_tip()
                                         previous_edge = edge.length   
@@ -282,24 +290,33 @@ class SubtreeNode:
                             # create new subtree
                             new_subtree = dendropy.Tree()
                             for item in node.tree.taxon_namespace:
-                                new_subtree.taxon_namespace.add_taxon(item)
+                                if item not in new_subtree.taxon_namespace:
+                                    new_subtree.taxon_namespace.add_taxon(item)
                             for item in node.parent.tree.taxon_namespace:
-                                new_subtree.taxon_namespace.add_taxon(item)
+                                if item not in new_subtree.taxon_namespace:
+                                    new_subtree.taxon_namespace.add_taxon(item)
                             cnode = new_subtree.seed_node.new_child(edge_length = previous_edge - this_new_length)
                             cnode.add_child(node.tree.seed_node)
                             cnode.add_child(original_child)
+                            new_subtree.reroot_at_node(new_subtree.seed_node)
 
                             #print(f"We have created the new subtree: {new_subtree}.")
 
+                            for taxon in new_subtree.taxon_namespace:
+                                if not taxon in node.parent.tree.taxon_namespace:
+                                    node.parent.tree.taxon_namespace.add_taxon(taxon)
                             # add new subtree to old subtree
                             if the_coalesced_edge.head_node == node.parent.tree.seed_node:
                                 node.parent.tree = new_subtree
                             else:
                                 original_parent_node.remove_child(original_child)
-                                original_parent_node.add_child(cnode)
+                                newch = original_parent_node.new_child(edge_length = previous_edge - this_new_length)
+                                newch.add_child(node.tree.seed_node)
+                                newch.add_child(original_child)
 
                             #node.parent.tree.calc_node_ages()
                             coalesced = True
+                            node.parent.tree.calc_node_ages()
 
                             # reformat tree
                             output_stream = io.StringIO()
@@ -340,6 +357,7 @@ class SubtreeNode:
 
                             levels[depth-1].append(node)
 
+
         return(ils_joining_dlcpar_count, nni_joining_count)
 
     def check_nni_joining(self, the_coalesced_edge, subtreeleaves, sp_tree):
@@ -354,9 +372,9 @@ class SubtreeNode:
 
         # get mrca
         count=0
-        for node in ref_tree.levelorder_node_iter():
+        for thenode in ref_tree.levelorder_node_iter():
 
-            node_leaves = get_leaves_node(node)
+            node_leaves = get_leaves_node(thenode)
             #node_leaves = [x.strip("'").split()[0] for x in node_leaves]
 
             if count == 0:
@@ -365,8 +383,8 @@ class SubtreeNode:
             elif set(all_leaves_to_join).issubset(set(node_leaves)):
                 mrca_leaves = node_leaves
 
-        for node in ref_tree.levelorder_node_iter():
-            node_leaves = get_leaves_node(node)
+        for thenode in ref_tree.levelorder_node_iter():
+            node_leaves = get_leaves_node(thenode)
 
             # is it the mrca
             if check_lists_equality(node_leaves, mrca_leaves):
@@ -377,8 +395,8 @@ class SubtreeNode:
                 if not check_lists_equality(subtreeleaves, node_leaves):
                     nni+=1
 
-        for node in ref_tree.levelorder_node_iter():
-            node_leaves = get_leaves_node(node)
+        for thenode in ref_tree.levelorder_node_iter():
+            node_leaves = get_leaves_node(thenode)
 
             # is it the mrca
             if check_lists_equality(node_leaves, mrca_leaves):
@@ -565,6 +583,7 @@ class mlmsc:
 
         original_locus_trees = []
         mutated_locus_trees = []
+        ages_locus_trees = []
 
         for edge in parent_tree.preorder_edge_iter():
 
@@ -590,6 +609,7 @@ class mlmsc:
 
                     # calculate the event age (time from the present)
                     event_age = (edge.length - (tc+ti)) + edge.head_node.age
+                    ages_locus_trees.append(event_age)
 
                     # get the possible leaves from the species tree
                     sp_leaves = self._get_leaves_from_species(locus_leaves, event_age)
@@ -611,6 +631,11 @@ class mlmsc:
                     mutated_locus_trees.append(mutated_subtree)
 
                 tc += ti
+
+        if len(mutated_locus_trees) > 0:
+            sorted_pairs = sorted(zip(ages_locus_trees, mutated_locus_trees), key=lambda x: x[0], reverse=True)
+            sorted_ages, sorted_mutated_locus_trees = zip(*sorted_pairs)
+            mutated_locus_trees = list(sorted_mutated_locus_trees)
 
         return(original_locus_trees, mutated_locus_trees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count)
 
@@ -666,8 +691,8 @@ class mlmsc:
 
         else:
             subtree = new_subtree
-            for node in subtree.preorder_node_iter():
-                treeheight = node.age
+            for thenode in subtree.preorder_node_iter():
+                treeheight = thenode.age
                 break
             for edge in subtree.preorder_edge_iter():
                 edge.length = event_age - treeheight
@@ -779,55 +804,6 @@ def check_lists_equality(list1, list2):
     return set(list1) == set(list2)
 
 
-def create_table(sp_tree, unmodified_trees, all_subtrees):
-
-    # create annotated species tree
-    count = 0
-
-
-    for edge in sp_tree.preorder_edge_iter():
-        edge.annotations.drop()
-        edge.annotations['label'] = count
-        count+=1
-    newly_annotated = sp_tree.as_string(schema="nexus", suppress_annotations = False)
-
-
-    
-
-
-
-    # compare gene trees to the species tree
-    all_branch_data = 'Branch\tParent_1'
-    for item in range(len(unmodified_trees)-1):
-        all_branch_data += '\t'
-        all_branch_data += 'Copy_%s' % str(item+2)
-    for edge in sp_tree.preorder_edge_iter():
-        leaves = get_leaves(edge)
-        if len(leaves) > 1 and len(leaves) < len(sp_tree.leaf_nodes()):
-            #print("Look for edge:")
-            #print(leaves)
-            #print('check the gene trees')
-            branch_data = '%s' % str(edge.annotations['label']).split("=")[1].strip("'")
-            for genetree in unmodified_trees:
-                #print(genetree)
-                found_edge = False
-                for gtedge in genetree.preorder_edge_iter():
-                    if found_edge == False:
-                        gtleaves = get_leaves(gtedge)
-                        intersect_gtleaves = [x.split(' ')[0] for x in gtleaves]
-                        if check_lists_equality(intersect_gtleaves, leaves):
-                            found_edge = True
-                branch_data += '\t'
-                if found_edge:
-                    branch_data += 'True'
-                else:
-                    branch_data += 'False'
-            all_branch_data += '\n'
-            all_branch_data += branch_data
-    #print(len(unmodified_trees))
-
-    return(all_branch_data, newly_annotated, unmodified_trees)
-        
 
 def main():
              
