@@ -783,22 +783,12 @@ def parse_args():
     args= parser.parse_args()
     return(args)
 
-def write_trees(tree, outputdir, rep):
-    tree.write(path = '%s/rep_%s.tre' % (outputdir, rep), schema="newick", suppress_rooting=True)
+def write_trees(tree, treefile):
+    treefile.write(tree.as_string(schema="newick", suppress_rooting=True))
 
-def write_log(outputdir, rep, total_dups, total_losses,  hemiplasy, rk_hemiplasy, all_nni, all_ils):
-    output_log_name = '%s/rep_%s.log' % (outputdir, rep)
-    output_log = open(output_log_name, 'w')
-    output_log.write("Replicate: %s\n" % rep)
-    output_log.write("Total duplications: %s\n" % str(total_dups))
-    output_log.write("Total losses: %s\n" % str(total_losses))
-    output_log.write("Copy Number Hemiplasy: %s\n" % str(hemiplasy))
-    output_log.write("Rasmussen and Kellis hemiplasy: %s\n" % str(rk_hemiplasy))
-    output_log.write("All NNI: %s\n" % str(all_nni))
-    output_log.write("All ILS (DLCPar): %s\n" % str(all_ils))
+def write_log(rep,total_dups, total_losses,  hemiplasy, rk_hemiplasy, all_nni, all_ils,logfile):
+    logfile.write(f"{rep},{total_dups},{total_losses},{hemiplasy},{rk_hemiplasy},{all_nni},{all_ils}\n")
 
-    output_log.close()
-    
 
 def check_lists_equality(list1, list2):
     return set(list1) == set(list2)
@@ -825,6 +815,11 @@ def main():
     lambda_par = args.lambda_par
     mu_par = args.mu_par
 
+    # create tree file and tables
+    treefile = open(os.path.join(args.output, 'trees.tre'), 'w')
+    logfile = open(os.path.join(args.output, 'summary.csv'), 'w')
+    logfile.write('replicate,duplications,losses,CNH,RKH,ILS,ILS_DLCPAR\n')
+
     for i in range(args.reps):
 
         # copy of species tree
@@ -843,9 +838,9 @@ def main():
 
         print('replicate: %s' % i)
 
-        write_trees(final_trees, args.output, str(i))
+        write_trees(final_trees, treefile)
 
-        write_log(args.output, str(i), duplication_count, loss_count,  cnh_count, rkh_count, all_ils, all_ils_dlcpar)
+        write_log(str(i),duplication_count, loss_count,  cnh_count, rkh_count, all_ils, all_ils_dlcpar, logfile)
 
         del final_trees 
         del simulated_trees
@@ -860,6 +855,10 @@ def main():
         del loss_count
         del cnh_losscount
         del rkh_losscount
+
+    treefile.close()
+    logfile.close()
+
 
 if __name__ == "__main__":
     main()
