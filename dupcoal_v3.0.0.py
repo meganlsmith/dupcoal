@@ -69,17 +69,6 @@ class SubtreeNode:
             if found_node:
                 return found_node
 
-    def get_tree_height(self, tree):
-        for thenode in tree.preorder_node_iter():
-            height = thenode.age
-            break
-        for edge in tree.preorder_edge_iter():
-            if edge.length is None:
-                continue
-            height+=edge.length
-            break
-        return(height)
-
     def level_order_traversal_bottom_up(self, root, sp_tree):
         """
         Perform a level-order traversal (from tips to root).
@@ -124,7 +113,8 @@ class SubtreeNode:
             
             levelheights = []
             for theitem in levels[depth]:
-                levelheights.append(self.get_tree_height(theitem.tree))
+                levelheights.append(get_tree_height(theitem.tree))
+
             sorted_pairs = sorted(zip(levelheights, levels[depth]), key=lambda x: x[0], reverse=True)
             sorted_ages, sorted_levels = zip(*sorted_pairs)
             levels[depth] = list(sorted_levels)
@@ -138,11 +128,11 @@ class SubtreeNode:
                     #print(f"Coalesce it to its parent: {node.parent.tree}")
 
                     # get the age of the present copy This is not working correctly
-                    age = self.get_tree_height(node.tree)
+                    age = get_tree_height(node.tree)
                     original_age = age
 
                     # get the age of its parent
-                    parent_height = self.get_tree_height(node.parent.tree)
+                    parent_height = get_tree_height(node.parent.tree)
                     if node.parent.name == "Root":
                         parent_height = np.inf
 
@@ -415,6 +405,9 @@ class mlmsc:
         self.lambda_par = lambda_par
         self.mu_par = mu_par
 
+
+
+
     def generate(self):
 
         # counter to track duplications
@@ -585,6 +578,7 @@ class mlmsc:
         mutated_locus_trees = []
         ages_locus_trees = []
 
+
         for edge in parent_tree.preorder_edge_iter():
 
             locus_leaves = get_leaves(edge)
@@ -609,6 +603,8 @@ class mlmsc:
 
                     # calculate the event age (time from the present)
                     event_age = (edge.length - (tc+ti)) + edge.head_node.age
+                    if event_age > get_tree_height(self.sp_tree):
+                        continue
                     ages_locus_trees.append(event_age)
 
                     # get the possible leaves from the species tree
@@ -796,7 +792,16 @@ def write_log(rep,total_dups, total_losses,  hemiplasy, rk_hemiplasy, all_nni, a
 def check_lists_equality(list1, list2):
     return set(list1) == set(list2)
 
-
+def get_tree_height(tree):
+    for thenode in tree.preorder_node_iter():
+        height = thenode.age
+        break
+    for edge in tree.preorder_edge_iter():
+        if edge.length is None:
+            break
+        height+=edge.length
+        break
+    return(height)
 
 def main():
              
