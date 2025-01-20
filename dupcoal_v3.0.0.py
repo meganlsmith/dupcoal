@@ -400,10 +400,11 @@ class SubtreeNode:
         return nni
 
 class mlmsc:
-    def __init__(self, sp_tree, lambda_par, mu_par):
+    def __init__(self, sp_tree, lambda_par, mu_par, og_spheight):
         self.sp_tree = sp_tree
         self.lambda_par = lambda_par
         self.mu_par = mu_par
+        self.og_spheight = og_spheight
 
 
 
@@ -507,6 +508,9 @@ class mlmsc:
 
             if edge.length == 0 or edge.length == None: # skip the root edge
                 continue
+            
+            #if (edge.length + edge.head_node.age) > self.og_spheight:
+            #    print('do something')
 
             # draw the time of the next event from an exponential distribution.
             current_scale_parameter =  1/(self.mu_par)
@@ -515,6 +519,8 @@ class mlmsc:
             # check whether event occurs on edge
             if ti < edge.length:
                     
+                event_age = (edge.length - (ti)) + edge.head_node.age
+
                 if set(get_leaves(edge)).isdisjoint(leaves_to_remove):
                     edges_to_lose.append(edge)
                     for item in edge.head_node.leaf_iter():
@@ -532,7 +538,6 @@ class mlmsc:
 
                     # check for RK CNH
                     # find sp branch
-                    event_age = (edge.length - (ti)) + edge.head_node.age
                     sp_leaves = self._get_leaves_from_species(edge_leaves, event_age)
                     if set(sp_leaves) != set(edge_leaves):
                         rkmatch=True
@@ -603,7 +608,7 @@ class mlmsc:
 
                     # calculate the event age (time from the present)
                     event_age = (edge.length - (tc+ti)) + edge.head_node.age
-                    if event_age > get_tree_height(self.sp_tree):
+                    if event_age > self.og_spheight:
                         continue
                     ages_locus_trees.append(event_age)
 
@@ -834,7 +839,7 @@ def main():
         sp_tree = sp_tree_main.clone()
 
         # perform top-down birth death under the modified model
-        mlmsc_simulator = mlmsc(sp_tree, lambda_par, mu_par)
+        mlmsc_simulator = mlmsc(sp_tree, lambda_par, mu_par, get_tree_height(sp_tree))
         simulated_trees, duplication_count, cnh_dupcount, rkh_dupcount, ils_count, ils_dlcpar_count = mlmsc_simulator.generate()
         combined_tree, ils_joining_dlcpar_count, nni_joining_count = mlmsc_simulator.coalesce(simulated_trees)
         final_trees, loss_count, cnh_losscount, rkh_losscount = mlmsc_simulator.losses(combined_tree)
