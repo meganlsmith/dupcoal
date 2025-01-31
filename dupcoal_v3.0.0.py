@@ -400,14 +400,12 @@ class SubtreeNode:
         return nni
 
 class mlmsc:
+
     def __init__(self, sp_tree, lambda_par, mu_par, og_spheight):
         self.sp_tree = sp_tree
         self.lambda_par = lambda_par
         self.mu_par = mu_par
         self.og_spheight = og_spheight
-
-
-
 
     def generate(self):
 
@@ -440,20 +438,21 @@ class mlmsc:
         to_process = mutated_subtrees  # List of subtrees to process
         all_original_subtrees = original_subtrees  # Keep track of all original subtrees
         all_mutated_subtrees = mutated_subtrees
+        print(to_process)
 
         # add to tree
         for subtree in mutated_subtrees:
             subtree_str = SubtreeNode(subtree, name=subtree.as_string(schema="newick").strip())
-            #print(f"Adding subtree {subtree_str.name}.")
             root.add_child(subtree_str)
 
         while to_process:
             # get the next subtree to process
             current_subtree = to_process.pop(0)
-            #print(f"Processing subtree {current_subtree.as_string(schema="newick").strip()}")
+            print(f"Processing subtree {current_subtree.as_string(schema="newick").strip()}")
 
             # generate duplications for the current subtree
             new_original, new_mutated, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count = self._birth_mlmsc(current_subtree)
+            print(len(new_mutated))
             duplication_count+=current_duplication_count
             cnh_count+=current_cnh_count
             rkh_count += current_rkh_count
@@ -465,16 +464,19 @@ class mlmsc:
             all_mutated_subtrees.extend(new_mutated)
 
             # add to tree
+            print(f"Before appending: {[s.as_string(schema='newick').strip() for s in to_process]}")
             for subtree in new_mutated:
                 subtree_str = SubtreeNode(subtree, name=subtree.as_string(schema="newick").strip())
                 get_parent = root.find_node_by_name(root, current_subtree.as_string(schema="newick").strip())
                 #print(f"Adding to {current_subtree.as_string(schema="newick").strip()}")
                 #print(get_parent)
                 get_parent.add_child(subtree_str)
-                #print(f"Adding subtree {subtree_str.name}")
+                print(f"Adding subtree {subtree_str.name}")
+                to_process.append(subtree)
+            print(f"After appending: {[s.as_string(schema='newick').strip() for s in to_process]}")
 
             # add newly mutated subtrees to the processing queue
-            to_process.extend(new_mutated)
+            print(to_process)
         return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count)
 
     def coalesce(self, root):
@@ -600,16 +602,21 @@ class mlmsc:
                 current_scale_parameter =  1/(self.lambda_par)
                 ti = np.random.exponential(scale = current_scale_parameter)
 
+                tc+=ti
+
                 # check whether event occurs on edge
-                if tc + ti < edge.length:
+                if tc < edge.length:
+
+
+
+                    # calculate the event age (time from the present)
+                    event_age = (edge.length - (tc)) + edge.head_node.age
+                    if event_age > self.og_spheight:
+                        continue
 
                     # count the event
                     current_duplication_count+=1
 
-                    # calculate the event age (time from the present)
-                    event_age = (edge.length - (tc+ti)) + edge.head_node.age
-                    if event_age > self.og_spheight:
-                        continue
                     ages_locus_trees.append(event_age)
 
                     # get the possible leaves from the species tree
@@ -631,7 +638,6 @@ class mlmsc:
 
                     mutated_locus_trees.append(mutated_subtree)
 
-                tc += ti
 
         if len(mutated_locus_trees) > 0:
             sorted_pairs = sorted(zip(ages_locus_trees, mutated_locus_trees), key=lambda x: x[0], reverse=True)
@@ -810,7 +816,7 @@ def get_tree_height(tree):
 
 def main():
              
-    # get arguments (species tree, lambda_par, mu_par, arbitrarily_long_root)
+    # get arguments
     args = parse_args()
 
     # create output folder
