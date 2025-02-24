@@ -1,8 +1,5 @@
-testing
-test
 .DS_Store
-sp_tree_short_sarthrak.tre
-trigger_simulated_data.py
-.DS_Store
-test.tre
-/test_MLMSC
+/testing_old
+/test_MLMSC/old
+test_MLMSC/.Rhistory
+/test_MLMSC/simulations

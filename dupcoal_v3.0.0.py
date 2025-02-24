@@ -30,16 +30,7 @@ class SubtreeNode:
         self.children.append(child_node)
 
     def find_node_by_name(self, node, name):
-        """
-        Find a node in the tree by its name.
 
-        Args:
-        - node: The current SubtreeNode to search.
-        - name: The name of the node to find.
-
-        Returns:
-        - SubtreeNode: The node with the matching name, or None if not found.
-        """
         if node.name == name:
             return node
 
@@ -50,16 +41,7 @@ class SubtreeNode:
                 return found_node
 
     def find_node_by_tree(self, node, tree):
-        """
-        Find a node in the tree by its name.
 
-        Args:
-        - node: The current SubtreeNode to search.
-        - name: The name of the node to find.
-
-        Returns:
-        - SubtreeNode: The node with the matching name, or None if not found.
-        """
         if node.tree == tree:
             return node
 
@@ -70,15 +52,7 @@ class SubtreeNode:
                 return found_node
 
     def level_order_traversal_bottom_up(self, root, sp_tree):
-        """
-        Perform a level-order traversal (from tips to root).
 
-        Args:
-        - root: The root SubtreeNode of the tree structure.
-
-        Returns:
-        - None: Prints each subtree during traversal, starting from the tips.
-        """
         # set a counter for naming copies
         copyid = 1
 
@@ -127,9 +101,9 @@ class SubtreeNode:
                     #print(f"Coalesce this daughter tree {node.tree}.")
                     #print(f"Coalesce it to its parent: {node.parent.tree}")
 
-                    # get the age of the present copy This is not working correctly
+                    # get the age of the present copy
                     age = get_tree_height(node.tree)
-                    original_age = age
+                    #original_age = age.copy()
 
                     # get the age of its parent
                     parent_height = get_tree_height(node.parent.tree)
@@ -368,10 +342,10 @@ class SubtreeNode:
             #node_leaves = [x.strip("'").split()[0] for x in node_leaves]
 
             if count == 0:
-                mrca_leaves = node_leaves
+                mrca_leaves = node_leaves.copy()
                 count+=1
             elif set(all_leaves_to_join).issubset(set(node_leaves)):
-                mrca_leaves = node_leaves
+                mrca_leaves = node_leaves.copy()
 
         for thenode in ref_tree.levelorder_node_iter():
             node_leaves = get_leaves_node(thenode)
@@ -418,27 +392,32 @@ class mlmsc:
 
         # sample the parent tree from the MSC
         parent_tree = self._get_gene_tree()
+        original_parent = copy.deepcopy(parent_tree)
+        current_ils_count, current_ils_dlcpar_count = self._tree_differences(parent_tree)
+        ils_count += current_ils_count
+        ils_dlcpar_count += current_ils_dlcpar_count
 
         # store in tree
         root = SubtreeNode(tree=parent_tree, name="Root")
 
         # return this if there is no duplication
         if self.lambda_par == 0:
-            return(root)
+            return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count, [], [], original_parent, [])
 
         # place duplications on tree
-        original_subtrees, mutated_subtrees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count = self._birth_mlmsc(parent_tree)
+        original_subtrees, mutated_subtrees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages = self._birth_mlmsc(parent_tree)
         duplication_count+= current_duplication_count
         cnh_count+=current_cnh_count
         rkh_count += current_rkh_count
         ils_count += current_ils_count
         ils_dlcpar_count += current_ils_dlcpar_count
 
+
         # process mutated subtrees iteratively
-        to_process = mutated_subtrees  # List of subtrees to process
-        all_original_subtrees = original_subtrees  # Keep track of all original subtrees
-        all_mutated_subtrees = mutated_subtrees
-        print(to_process)
+        to_process = mutated_subtrees.copy()  # List of subtrees to process
+        all_original_subtrees = original_subtrees.copy()  # Keep track of all original subtrees
+        all_mutated_subtrees = mutated_subtrees.copy()
+        all_ages = ages.copy()
 
         # add to tree
         for subtree in mutated_subtrees:
@@ -448,11 +427,9 @@ class mlmsc:
         while to_process:
             # get the next subtree to process
             current_subtree = to_process.pop(0)
-            print(f"Processing subtree {current_subtree.as_string(schema="newick").strip()}")
 
             # generate duplications for the current subtree
-            new_original, new_mutated, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count = self._birth_mlmsc(current_subtree)
-            print(len(new_mutated))
+            new_original, new_mutated, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, current_ages = self._birth_mlmsc(current_subtree)
             duplication_count+=current_duplication_count
             cnh_count+=current_cnh_count
             rkh_count += current_rkh_count
@@ -462,22 +439,16 @@ class mlmsc:
             # add new original subtrees to the overall list
             all_original_subtrees.extend(new_original)
             all_mutated_subtrees.extend(new_mutated)
+            all_ages.extend(current_ages)
 
             # add to tree
-            print(f"Before appending: {[s.as_string(schema='newick').strip() for s in to_process]}")
             for subtree in new_mutated:
                 subtree_str = SubtreeNode(subtree, name=subtree.as_string(schema="newick").strip())
                 get_parent = root.find_node_by_name(root, current_subtree.as_string(schema="newick").strip())
-                #print(f"Adding to {current_subtree.as_string(schema="newick").strip()}")
-                #print(get_parent)
                 get_parent.add_child(subtree_str)
-                print(f"Adding subtree {subtree_str.name}")
                 to_process.append(subtree)
-            print(f"After appending: {[s.as_string(schema='newick').strip() for s in to_process]}")
 
-            # add newly mutated subtrees to the processing queue
-            print(to_process)
-        return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count)
+        return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count, all_original_subtrees, all_mutated_subtrees, original_parent, all_ages)
 
     def coalesce(self, root):
         """Coalesce subtrees."""
@@ -611,8 +582,6 @@ class mlmsc:
 
                     # calculate the event age (time from the present)
                     event_age = (edge.length - (tc)) + edge.head_node.age
-                    if event_age > self.og_spheight:
-                        continue
 
                     # count the event
                     current_duplication_count+=1
@@ -644,7 +613,7 @@ class mlmsc:
             sorted_ages, sorted_mutated_locus_trees = zip(*sorted_pairs)
             mutated_locus_trees = list(sorted_mutated_locus_trees)
 
-        return(original_locus_trees, mutated_locus_trees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count)
+        return(original_locus_trees, mutated_locus_trees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages_locus_trees)
 
     def _get_leaves_from_species(self, locus_leaves, event_age):
 
@@ -723,7 +692,6 @@ class mlmsc:
             rkmatch =True
         else:
             rkmatch = False
-
         return(subtree, 1-match, rkmatch)
 
     def _count_ils(self, gene_tree):
@@ -787,6 +755,7 @@ def parse_args():
     parser.add_argument('--lambda_par', type=float, help="Duplication rate.")
     parser.add_argument('--reps', type=int, help="Number of gene families to simulate.")
     parser.add_argument('--output', type=str, help="Folder for storing results.")
+    parser.add_argument('--verbose', type=int, help="Whether to output additional information. 1=output original and mutated trees.", default=0)
     args= parser.parse_args()
     return(args)
 
@@ -813,6 +782,23 @@ def get_tree_height(tree):
         height+=edge.length
         break
     return(height)
+
+def write_subtrees(original_subtrees, mutated_subtrees, output, rep, parent_tree, ages):
+    otrees = os.path.join(output, f"original_trees_{rep}.trees")
+    mtrees = os.path.join(output, f"mutated_trees_{rep}.trees")
+    agesfile = os.path.join(output, f"ages_{rep}.txt")
+    with open(otrees, 'w') as f:
+        f.write(parent_tree.as_string(schema="newick"))
+        for item in original_subtrees:
+            f.write(item.as_string(schema="newick"))
+    with open(mtrees, 'w') as f:
+        f.write(parent_tree.as_string(schema="newick"))
+        for item in mutated_subtrees:
+            f.write(item.as_string(schema="newick"))
+    with open(agesfile, 'w') as f:
+        for item in ages:
+            f.write(f"{item}\n")
+
 
 def main():
              
@@ -846,8 +832,8 @@ def main():
 
         # perform top-down birth death under the modified model
         mlmsc_simulator = mlmsc(sp_tree, lambda_par, mu_par, get_tree_height(sp_tree))
-        simulated_trees, duplication_count, cnh_dupcount, rkh_dupcount, ils_count, ils_dlcpar_count = mlmsc_simulator.generate()
-        combined_tree, ils_joining_dlcpar_count, nni_joining_count = mlmsc_simulator.coalesce(simulated_trees)
+        simulated_trees, duplication_count, cnh_dupcount, rkh_dupcount, ils_count, ils_dlcpar_count, original_subtrees, mutated_subtrees, parent_tree, ages = mlmsc_simulator.generate()
+        combined_tree, ils_joining_dlcpar_count, nni_joining_count = mlmsc_simulator.coalesce(copy.deepcopy(simulated_trees))
         final_trees, loss_count, cnh_losscount, rkh_losscount = mlmsc_simulator.losses(combined_tree)
 
         cnh_count = cnh_dupcount + cnh_losscount
@@ -860,6 +846,9 @@ def main():
         write_trees(final_trees, treefile)
 
         write_log(str(i),duplication_count, loss_count,  cnh_count, rkh_count, all_ils, all_ils_dlcpar, logfile)
+
+        if args.verbose == 1:
+            write_subtrees(original_subtrees, mutated_subtrees, args.output, str(i), parent_tree, ages)
 
         del final_trees 
         del simulated_trees
@@ -874,6 +863,8 @@ def main():
         del loss_count
         del cnh_losscount
         del rkh_losscount
+        del original_subtrees
+        del mutated_subtrees
 
     treefile.close()
     logfile.close()
