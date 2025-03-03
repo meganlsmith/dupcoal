@@ -765,8 +765,8 @@ def write_trees(tree, treefile):
     else:
         treefile.write(tree.as_string(schema="newick", suppress_rooting=True))
 
-def write_log(rep,total_dups, total_losses,  hemiplasy, rk_hemiplasy, all_nni, all_ils,logfile):
-    logfile.write(f"{rep},{total_dups},{total_losses},{hemiplasy},{rk_hemiplasy},{all_nni},{all_ils}\n")
+def write_log(rep,total_dups, total_obs_dups, total_losses,  hemiplasy, rk_hemiplasy, all_nni, all_ils,logfile):
+    logfile.write(f"{rep},{total_dups},{total_obs_dups},{total_losses},{hemiplasy},{rk_hemiplasy},{all_nni},{all_ils}\n")
 
 
 def check_lists_equality(list1, list2):
@@ -823,7 +823,7 @@ def main():
     # create tree file and tables
     treefile = open(os.path.join(args.output, 'trees.tre'), 'w')
     logfile = open(os.path.join(args.output, 'summary.csv'), 'w')
-    logfile.write('replicate,duplications,losses,CNH,RKH,ILS,ILS_DLCPAR\n')
+    logfile.write('replicate,duplications,observed_duplications,losses,CNH,RKH,ILS,ILS_DLCPAR\n')
 
     for i in range(args.reps):
 
@@ -836,6 +836,12 @@ def main():
         combined_tree, ils_joining_dlcpar_count, nni_joining_count = mlmsc_simulator.coalesce(copy.deepcopy(simulated_trees))
         final_trees, loss_count, cnh_losscount, rkh_losscount = mlmsc_simulator.losses(combined_tree)
 
+
+        if final_trees:
+            observable_duplication_count = len(set([x.split()[1] for x in get_leaves_node(final_trees)]))-1
+        else:
+            observable_duplication_count = 0
+
         cnh_count = cnh_dupcount + cnh_losscount
         rkh_count = rkh_dupcount + rkh_losscount
         all_ils = nni_joining_count + ils_count
@@ -845,7 +851,7 @@ def main():
 
         write_trees(final_trees, treefile)
 
-        write_log(str(i),duplication_count, loss_count,  cnh_count, rkh_count, all_ils, all_ils_dlcpar, logfile)
+        write_log(str(i),duplication_count, observable_duplication_count, loss_count,  cnh_count, rkh_count, all_ils, all_ils_dlcpar, logfile)
 
         if args.verbose == 1:
             write_subtrees(original_subtrees, mutated_subtrees, args.output, str(i), parent_tree, ages)

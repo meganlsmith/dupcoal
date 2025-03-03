@@ -9,7 +9,6 @@
 lb_values=(0 1 2 3 4 5 6)
 c_values=(1 9)
 ld_values=(0.5 1)
-ld_values=(0.5)
 
 # Path to SimPhy executable
 DUPCOAL_BIN="$HOME/Documents/GitHub/dupcoal/dupcoal_v3.0.0.py"

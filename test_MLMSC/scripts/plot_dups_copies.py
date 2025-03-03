@@ -9,6 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from ete3 import Tree
 import sys
+import numpy as np
 
 def create_map(tree, temp_output, sptree):
     thenames = tree.get_leaf_names()
@@ -38,9 +39,9 @@ def create_map(tree, temp_output, sptree):
 
 def astral(line, args, program):
 
-    totalquartets=None
-    quartetscore=None
-    normquartetscore=None
+    totalquartets=np.nan
+    quartetscore=np.nan
+    normquartetscore=np.nan
 
     # rename tree tips if mlmsc
     tree = Tree(line.strip())
@@ -102,6 +103,9 @@ def extract_simphy_data(folder, args):
             
             trees = [Tree(line.strip()) for line in open(tree_path) if line.strip()]
             tip_counts = [len(tree.get_leaves()) for tree in trees]
+            unique_copies = []
+            for tree in trees:
+                unique_copies.append(len(set([x.split('_')[1] for x in tree.get_leaf_names()]))-1)
 
             if args.discordance: 
                 totalquartets = []
@@ -112,12 +116,13 @@ def extract_simphy_data(folder, args):
                     totalquartets.append(curr_totalquartets)
                     quartetscore.append(curr_quartetscore)
                     normalizedscore.append(curr_normalizedscore)
+
             
-                for n_dup, n_tips, totalq, qscore, normalqscore in zip(df["n_dup"], tip_counts, totalquartets, quartetscore, normalizedscore):
-                    data.append(["simphy"] + params + [n_dup, n_tips, totalq, qscore, normalqscore])
+                for n_dup, n_tips, obs_dup, totalq, qscore, normalqscore in zip(df["n_dup"], tip_counts,unique_copies, totalquartets, quartetscore, normalizedscore):
+                    data.append(["simphy"] + params + [n_dup, n_tips, obs_dup, totalq, qscore, normalqscore])
             else:
-                for n_dup, n_tips in zip(df["n_dup"], tip_counts):
-                    data.append(["simphy"] + params + [n_dup, n_tips])
+                for n_dup, n_tips, obs_dup in zip(df["n_dup"], tip_counts, unique_copies):
+                    data.append(["simphy"] + params + [n_dup, n_tips, obs_dup])
     return data
 
 def extract_csv_data(folder, program, dup_col, tree_pattern, args):
@@ -152,6 +157,8 @@ def extract_csv_data(folder, program, dup_col, tree_pattern, args):
                         tip_counts.append(len(tree.get_leaves()))
                         if program=="dupcoal":
                             unique_copies.append(len(set([x.split('_')[1] for x in tree.get_leaf_names()]))-1)
+                        else:
+                            unique_copies.append(np.nan)
                         if args.discordance:
                             curr_totalquartets, curr_quartetscore, curr_normalizedscore = astral(line, args, program=program)
                             totalquartets.append(curr_totalquartets)
@@ -162,25 +169,27 @@ def extract_csv_data(folder, program, dup_col, tree_pattern, args):
                         tip_counts.append(0)
                         if program=="dupcoal":
                             unique_copies.append(0)
+                        else:
+                            unique_copies.append(np.nan)
                         if args.discordance:
-                            totalquartets.append(None)
-                            quartetscore.append(None)
-                            normalizedscore.append(None)
+                            totalquartets.append(np.nan)
+                            quartetscore.append(np.nan)
+                            normalizedscore.append(np.nan)
 
             if program == "dupcoal":
                 if args.discordance:
-                    for n_dup, n_tips, totalq, qscore, normalqscore in zip(unique_copies, tip_counts, totalquartets, quartetscore, normalizedscore):
-                        data.append([program] + params + [n_dup, n_tips, totalq, qscore, normalqscore])
+                    for n_dup, n_tips, obs_dup, totalq, qscore, normalqscore in zip(df[dup_col], tip_counts, unique_copies, totalquartets, quartetscore, normalizedscore):
+                        data.append([program] + params + [n_dup, n_tips, obs_dup, totalq, qscore, normalqscore])
                 else:
-                    for n_dup, n_tips in zip(unique_copies, tip_counts):
-                        data.append([program] + params + [n_dup, n_tips])
+                    for n_dup, n_tips, obs_dup in zip(df[dup_col], tip_counts, unique_copies):
+                        data.append([program] + params + [n_dup, n_tips, obs_dup])
             else:
                 if args.discordance:
-                    for n_dup, n_tips, totalq, qscore, normalqscore in zip(df[dup_col], tip_counts, totalquartets, quartetscore, normalizedscore):
-                        data.append([program] + params + [n_dup, n_tips, totalq, qscore, normalqscore])
+                    for n_dup, n_tips, obs_dup, totalq, qscore, normalqscore in zip(unique_copies, tip_counts, df[dup_col], totalquartets, quartetscore, normalizedscore):
+                        data.append([program] + params + [n_dup, n_tips, obs_dup, totalq, qscore, normalqscore])
                 else:
-                    for n_dup, n_tips in zip(df[dup_col], tip_counts):
-                        data.append([program] + params + [n_dup, n_tips])
+                    for n_dup, n_tips, obs_dup in zip(unique_copies, tip_counts, df[dup_col]):
+                        data.append([program] + params + [n_dup, n_tips, obs_dup])
     return data
 
 def plot_summaries(df, args):
@@ -190,7 +199,7 @@ def plot_summaries(df, args):
 
     for j, ld_val in enumerate(df['ld'].unique()):
         subset = df[(df["ld"]==ld_val)].copy()
-        for k, metric in enumerate(["duplications", "gene_copies"]):
+        for k, metric in enumerate(["obs_dup", "gene_copies"]):
             ax = axes[j,k]
             sns.lineplot(data=subset, x="lb", y=metric, hue="program", ax=ax, errorbar="se", err_style="bars", style="branch_length")
             ax.set_title(f"{metric.replace('_', ' ').title()} (ld={ld_val})")
@@ -240,9 +249,9 @@ def main():
         data.extend(extract_csv_data(args.mlmsc, "mlmsc", "n_d", "gene_tree_*.newick", args))
 
     if args.discordance:
-        df = pd.DataFrame(data, columns=["program", "Ne", "lb", "ld", "c", "duplications", "gene_copies", "total_quartets", "quartet_score", "normalized_quartet_score"])
+        df = pd.DataFrame(data, columns=["program", "Ne", "lb", "ld", "c", "duplications", "gene_copies", "observed_duplications", "total_quartets", "quartet_score", "normalized_quartet_score"])
     else:
-        df = pd.DataFrame(data, columns=["program", "Ne", "lb", "ld", "c", "duplications", "gene_copies"])
+        df = pd.DataFrame(data, columns=["program", "Ne", "lb", "ld", "c", "duplications", "gene_copies", "observed_duplications"])
 
     df.to_csv(f"{args.output_prefix}.csv", index=False)
     df = pd.read_csv(filepath_or_buffer=f"{args.output_prefix}.csv")

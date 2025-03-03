@@ -32,6 +32,7 @@ For an extended description of the simulator, please see 'Extended_Description_v
 # Table file explanation
 
 * duplications: number of duplications
+* observed_duplications: number of observable duplications (i.e., those not entirely obscured by subsequent losses)
 * losses: number of losses
 * Copy Number Hemiplasy (CNH): number of cases in which a mutation is placed on a branch that does not exist in the species tree.
 * Rasmussen and Kellis CNH: number of cases in which a mutation is placed on a branch that does exist in the species tree, but does not match the current branch of the species tree. This is the phenomenon described as hemiplasy in Rasmussen and Kellis (2012, Figure 2B)
