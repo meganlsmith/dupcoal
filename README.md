@@ -1,28 +1,34 @@
 # dupcoal
+
 Simulate gene trees under a model that allows copy number hemiplasy.
 
 For an extended description of the simulator, please see 'Extended_Description_v1a.pdf'.
 
 # Arguments
+
 * stree
-    + type = str
-    + help = Path to file with newick formatted species tree to use for simulation. Branch lengths should be in coalescent units.
 
+  + type = str
+  + help = Path to file with newick formatted species tree to use for simulation. Branch lengths should be in coalescent units.
 * mu_par
-    + type = float
-    + help = loss rate.
 
+  + type = float
+  + help = loss rate.
 * lambda_par
-    + type = float
-    + help = duplication rate.
 
+  + type = float
+  + help = duplication rate.
 * reps
-    + type = int
-    + help = Number of gene families to simulate.
 
+  + type = int
+  + help = Number of gene families to simulate.
 * output
-    + type = str
-    + help = Folder for storing results.
+
+  + type = str
+  + help = Folder for storing results.
+* linked
+  + type = store_true (defaults to False unless flag is provided)
+  + help = Simulate linked loci. If specified, all daughter trees will be identical to the parent tree.
 
 # Outputs
 
@@ -40,6 +46,5 @@ For an extended description of the simulator, please see 'Extended_Description_v
 * All ILS DLCPar (ILS_DLCPAR): This includes the number of parent or daughter trees that are discordant and the number of times that a subtree joined a branch that did not match it in terms of taxon composition.
 
 # Example Usage
+
 python3 dupcoal_v3.0.0.py --stree sp_tree.tre --mu_par 0 --lambda_par 0.3 --reps 10 --output example
-
-

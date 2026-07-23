@@ -375,11 +375,12 @@ class SubtreeNode:
 
 class mlmsc:
 
-    def __init__(self, sp_tree, lambda_par, mu_par, og_spheight):
+    def __init__(self, sp_tree, lambda_par, mu_par, og_spheight, linked):
         self.sp_tree = sp_tree
         self.lambda_par = lambda_par
         self.mu_par = mu_par
         self.og_spheight = og_spheight
+        self.linked = linked
 
     def generate(self):
 
@@ -405,7 +406,7 @@ class mlmsc:
             return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count, [], [], original_parent, [])
 
         # place duplications on tree
-        original_subtrees, mutated_subtrees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages = self._birth_mlmsc(parent_tree)
+        original_subtrees, mutated_subtrees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages = self._birth_mlmsc(parent_tree, original_parent)
         duplication_count+= current_duplication_count
         cnh_count+=current_cnh_count
         rkh_count += current_rkh_count
@@ -429,7 +430,7 @@ class mlmsc:
             current_subtree = to_process.pop(0)
 
             # generate duplications for the current subtree
-            new_original, new_mutated, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, current_ages = self._birth_mlmsc(current_subtree)
+            new_original, new_mutated, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, current_ages = self._birth_mlmsc(current_subtree, original_parent)
             duplication_count+=current_duplication_count
             cnh_count+=current_cnh_count
             rkh_count += current_rkh_count
@@ -544,7 +545,7 @@ class mlmsc:
 
         return(gene_tree)
 
-    def _birth_mlmsc(self, parent_tree):
+    def _birth_mlmsc(self, parent_tree, original_parent):
 
         current_duplication_count = 0
         current_cnh_count = 0
@@ -592,7 +593,10 @@ class mlmsc:
                     sp_leaves = self._get_leaves_from_species(locus_leaves, event_age)
 
                     # draw a daugther gene tree
-                    new_locus_tree = self._get_gene_tree()
+                    if self.linked:
+                        new_locus_tree = copy.deepcopy(original_parent)
+                    else:
+                        new_locus_tree = self._get_gene_tree()
                     original_locus_trees.append(new_locus_tree)
 
                     # add the duplication
@@ -756,6 +760,7 @@ def parse_args():
     parser.add_argument('--reps', type=int, help="Number of gene families to simulate.")
     parser.add_argument('--output', type=str, help="Folder for storing results.")
     parser.add_argument('--verbose', type=int, help="Whether to output additional information. 1=output original and mutated trees.", default=0)
+    parser.add_argument('--linked', action='store_true', help="Simulate linked loci. If specified, all daughter trees will be identical to the parent tree.")
     args= parser.parse_args()
     return(args)
 
@@ -819,6 +824,7 @@ def main():
     # set the arugments
     lambda_par = args.lambda_par
     mu_par = args.mu_par
+    linked = args.linked
 
     # create tree file and tables
     treefile = open(os.path.join(args.output, 'trees.tre'), 'w')
@@ -831,7 +837,7 @@ def main():
         sp_tree = sp_tree_main.clone()
 
         # perform top-down birth death under the modified model
-        mlmsc_simulator = mlmsc(sp_tree, lambda_par, mu_par, get_tree_height(sp_tree))
+        mlmsc_simulator = mlmsc(sp_tree, lambda_par, mu_par, get_tree_height(sp_tree), linked)
         simulated_trees, duplication_count, cnh_dupcount, rkh_dupcount, ils_count, ils_dlcpar_count, original_subtrees, mutated_subtrees, parent_tree, ages = mlmsc_simulator.generate()
         combined_tree, ils_joining_dlcpar_count, nni_joining_count = mlmsc_simulator.coalesce(copy.deepcopy(simulated_trees))
         final_trees, loss_count, cnh_losscount, rkh_losscount = mlmsc_simulator.losses(combined_tree)
