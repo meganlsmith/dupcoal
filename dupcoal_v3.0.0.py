@@ -472,10 +472,11 @@ class mlmsc:
         loss_count = 0
         cnh_count = 0
         rkh_count = 0
+        branches_species_tree = []
 
         # return tree if loss is zero
         if self.mu_par == 0:
-            return(combined_tree, 0, 0, 0)
+            return(combined_tree, 0, 0, 0, None)
 
         edges_to_lose = []
         leaves_to_remove = []
@@ -501,7 +502,9 @@ class mlmsc:
                     edges_to_lose.append(edge)
                     for item in edge.head_node.leaf_iter():
                         leaves_to_remove.append(item.taxon.label)
+                    branch = self._find_sp_branch(get_leaves(edge), event_age)
                     loss_count += 1
+                    branches_species_tree.append(branch)
                 
                     # check for CNH
                     match=False
@@ -531,11 +534,11 @@ class mlmsc:
         taxa_to_remove = set(taxa_to_remove)
 
         if len(set(taxa_to_remove)) == len(combined_tree.taxon_namespace):
-            return (None, loss_count, cnh_count, rkh_count)
+            return (None, loss_count, cnh_count, rkh_count, branches_species_tree)
 
         else:
             updated_tree = combined_tree.extract_tree_without_taxa(taxa_to_remove)
-            return(updated_tree, loss_count, cnh_count, rkh_count)
+            return(updated_tree, loss_count, cnh_count, rkh_count, branches_species_tree)
 
     def _get_gene_tree(self):
         gene_to_species_map = dendropy.TaxonNamespaceMapping.create_contained_taxon_mapping(
@@ -810,11 +813,12 @@ def get_tree_height(tree):
         break
     return(height)
 
-def write_subtrees(original_subtrees, mutated_subtrees, output, rep, parent_tree, ages, branches):
+def write_subtrees(original_subtrees, mutated_subtrees, output, rep, parent_tree, ages, branches, branches_loss):
     otrees = os.path.join(output, f"original_trees_{rep}.trees")
     mtrees = os.path.join(output, f"mutated_trees_{rep}.trees")
     agesfile = os.path.join(output, f"ages_{rep}.txt")
     branchesfile = os.path.join(output, f"branches_{rep}.txt")
+    brancheslossfile = os.path.join(output, f"branches_loss_{rep}.txt")
     with open(otrees, 'w') as f:
         f.write(parent_tree.as_string(schema="newick"))
         for item in original_subtrees:
@@ -829,6 +833,13 @@ def write_subtrees(original_subtrees, mutated_subtrees, output, rep, parent_tree
     with open(branchesfile, 'w') as f:
         for item in branches:
             f.write(f"{item}\n")
+    if branches_loss is not None:
+        with open(brancheslossfile, 'w') as f:
+            for item in branches_loss:
+                f.write(f"{item}\n")
+    else:
+        with open(brancheslossfile, 'w') as f:
+            f.write("None\n")
 
 
 
@@ -867,7 +878,7 @@ def main():
         mlmsc_simulator = mlmsc(sp_tree, lambda_par, mu_par, get_tree_height(sp_tree), linked)
         simulated_trees, duplication_count, cnh_dupcount, rkh_dupcount, ils_count, ils_dlcpar_count, original_subtrees, mutated_subtrees, parent_tree, ages, branches = mlmsc_simulator.generate()
         combined_tree, ils_joining_dlcpar_count, nni_joining_count = mlmsc_simulator.coalesce(copy.deepcopy(simulated_trees))
-        final_trees, loss_count, cnh_losscount, rkh_losscount = mlmsc_simulator.losses(combined_tree)
+        final_trees, loss_count, cnh_losscount, rkh_losscount, branches_loss = mlmsc_simulator.losses(combined_tree)
 
 
         if final_trees:
@@ -887,7 +898,7 @@ def main():
         write_log(str(i),duplication_count, observable_duplication_count, loss_count,  cnh_count, rkh_count, all_ils, all_ils_dlcpar, logfile)
 
         if args.verbose == 1:
-            write_subtrees(original_subtrees, mutated_subtrees, args.output, str(i), parent_tree, ages, branches)
+            write_subtrees(original_subtrees, mutated_subtrees, args.output, str(i), parent_tree, ages, branches, branches_loss)
 
         del final_trees 
         del simulated_trees
