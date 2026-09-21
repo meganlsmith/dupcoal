@@ -406,7 +406,7 @@ class mlmsc:
             return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count, [], [], original_parent, [])
 
         # place duplications on tree
-        original_subtrees, mutated_subtrees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages = self._birth_mlmsc(parent_tree, original_parent)
+        original_subtrees, mutated_subtrees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages, branches = self._birth_mlmsc(parent_tree, original_parent)
         duplication_count+= current_duplication_count
         cnh_count+=current_cnh_count
         rkh_count += current_rkh_count
@@ -419,6 +419,7 @@ class mlmsc:
         all_original_subtrees = original_subtrees.copy()  # Keep track of all original subtrees
         all_mutated_subtrees = mutated_subtrees.copy()
         all_ages = ages.copy()
+        all_branches = branches.copy()
 
         # add to tree
         for subtree in mutated_subtrees:
@@ -430,7 +431,7 @@ class mlmsc:
             current_subtree = to_process.pop(0)
 
             # generate duplications for the current subtree
-            new_original, new_mutated, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, current_ages = self._birth_mlmsc(current_subtree, original_parent)
+            new_original, new_mutated, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, current_ages, current_branches = self._birth_mlmsc(current_subtree, original_parent)
             duplication_count+=current_duplication_count
             cnh_count+=current_cnh_count
             rkh_count += current_rkh_count
@@ -441,6 +442,7 @@ class mlmsc:
             all_original_subtrees.extend(new_original)
             all_mutated_subtrees.extend(new_mutated)
             all_ages.extend(current_ages)
+            all_branches.extend(current_branches)
 
             # add to tree
             for subtree in new_mutated:
@@ -449,7 +451,7 @@ class mlmsc:
                 get_parent.add_child(subtree_str)
                 to_process.append(subtree)
 
-        return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count, all_original_subtrees, all_mutated_subtrees, original_parent, all_ages)
+        return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count, all_original_subtrees, all_mutated_subtrees, original_parent, all_ages, all_branches)
 
     def coalesce(self, root):
         """Coalesce subtrees."""
@@ -556,6 +558,7 @@ class mlmsc:
         original_locus_trees = []
         mutated_locus_trees = []
         ages_locus_trees = []
+        branches_species_tree = []
 
 
         for edge in parent_tree.preorder_edge_iter():
@@ -589,6 +592,9 @@ class mlmsc:
 
                     ages_locus_trees.append(event_age)
 
+                    sp_branch = self._find_sp_branch(locus_leaves, event_age)
+                    branches_species_tree.append(sp_branch)
+
                     # get the possible leaves from the species tree
                     sp_leaves = self._get_leaves_from_species(locus_leaves, event_age)
 
@@ -611,13 +617,13 @@ class mlmsc:
 
                     mutated_locus_trees.append(mutated_subtree)
 
-
         if len(mutated_locus_trees) > 0:
-            sorted_pairs = sorted(zip(ages_locus_trees, mutated_locus_trees), key=lambda x: x[0], reverse=True)
-            sorted_ages, sorted_mutated_locus_trees = zip(*sorted_pairs)
+            sorted_triples = sorted(zip(ages_locus_trees, mutated_locus_trees, branches_species_tree), key=lambda x: x[0], reverse=True)
+            sorted_ages, sorted_mutated_locus_trees, sorted_branches_species_tree = zip(*sorted_triples)
             mutated_locus_trees = list(sorted_mutated_locus_trees)
+            branches_species_tree = list(sorted_branches_species_tree)
 
-        return(original_locus_trees, mutated_locus_trees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages_locus_trees)
+        return(original_locus_trees, mutated_locus_trees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages_locus_trees, branches_species_tree)
 
     def _get_leaves_from_species(self, locus_leaves, event_age):
 
@@ -733,6 +739,22 @@ class mlmsc:
 
         return(ils_count, ils_dlcpar)
 
+    def _find_sp_branch(self, locus_leaves, event_age):
+        # iterate over the edges of the gene tree. If an edge is a) alive at the right time and b) contains a relevant descedent, add it to the options
+        locus_leaf_labels = [x.split()[0] for x in locus_leaves]
+        leaves_to_return = None
+        for edge in self.sp_tree.preorder_edge_iter():
+            if edge.tail_node != None:
+                relevant_time_frame = [edge.head_node.age, edge.head_node.age + edge.length]
+                if event_age > relevant_time_frame[0] and event_age < relevant_time_frame[1]:
+                    leaves = get_leaves(edge)
+
+                    leaves = [x.split()[0] for x in leaves]
+                    if set(locus_leaf_labels).issubset(set(leaves)):
+                        leaves_to_return = leaves
+                        return(leaves)
+        if leaves_to_return is None:
+            return('ancestral')
 
 # utility functions using
 
@@ -788,10 +810,11 @@ def get_tree_height(tree):
         break
     return(height)
 
-def write_subtrees(original_subtrees, mutated_subtrees, output, rep, parent_tree, ages):
+def write_subtrees(original_subtrees, mutated_subtrees, output, rep, parent_tree, ages, branches):
     otrees = os.path.join(output, f"original_trees_{rep}.trees")
     mtrees = os.path.join(output, f"mutated_trees_{rep}.trees")
     agesfile = os.path.join(output, f"ages_{rep}.txt")
+    branchesfile = os.path.join(output, f"branches_{rep}.txt")
     with open(otrees, 'w') as f:
         f.write(parent_tree.as_string(schema="newick"))
         for item in original_subtrees:
@@ -803,6 +826,10 @@ def write_subtrees(original_subtrees, mutated_subtrees, output, rep, parent_tree
     with open(agesfile, 'w') as f:
         for item in ages:
             f.write(f"{item}\n")
+    with open(branchesfile, 'w') as f:
+        for item in branches:
+            f.write(f"{item}\n")
+
 
 
 def main():
@@ -838,7 +865,7 @@ def main():
 
         # perform top-down birth death under the modified model
         mlmsc_simulator = mlmsc(sp_tree, lambda_par, mu_par, get_tree_height(sp_tree), linked)
-        simulated_trees, duplication_count, cnh_dupcount, rkh_dupcount, ils_count, ils_dlcpar_count, original_subtrees, mutated_subtrees, parent_tree, ages = mlmsc_simulator.generate()
+        simulated_trees, duplication_count, cnh_dupcount, rkh_dupcount, ils_count, ils_dlcpar_count, original_subtrees, mutated_subtrees, parent_tree, ages, branches = mlmsc_simulator.generate()
         combined_tree, ils_joining_dlcpar_count, nni_joining_count = mlmsc_simulator.coalesce(copy.deepcopy(simulated_trees))
         final_trees, loss_count, cnh_losscount, rkh_losscount = mlmsc_simulator.losses(combined_tree)
 
@@ -860,7 +887,7 @@ def main():
         write_log(str(i),duplication_count, observable_duplication_count, loss_count,  cnh_count, rkh_count, all_ils, all_ils_dlcpar, logfile)
 
         if args.verbose == 1:
-            write_subtrees(original_subtrees, mutated_subtrees, args.output, str(i), parent_tree, ages)
+            write_subtrees(original_subtrees, mutated_subtrees, args.output, str(i), parent_tree, ages, branches)
 
         del final_trees 
         del simulated_trees
@@ -877,6 +904,8 @@ def main():
         del rkh_losscount
         del original_subtrees
         del mutated_subtrees
+        del ages
+        del branches
 
     treefile.close()
     logfile.close()
