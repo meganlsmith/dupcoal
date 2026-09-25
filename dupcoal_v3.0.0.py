@@ -303,18 +303,18 @@ class SubtreeNode:
                         elif tcoal+age > branch_to_coalesce[3] and tcoal+age <= parent_height:
                             # we failed to coalesce in this branch of the species tree
                             #print(f"We will move to a new branch of the species tree.")
-                            age = tcoal+age
+                            age = branch_to_coalesce[3]
                             del branch_to_coalesce
 
                         else:
                             # we failed to coalesce before the origin of the parent tree
-                            age = tcoal+age
+                            age = parent_height
 
                             # find parent's parent
                             parent_info = self.find_node_by_tree(root, node.parent.tree)
                             node.parent = parent_info.parent
                             
-                            # this is where we should update thge height inthe subtree and add it to the dictionary at the right depth
+                            # this is where we should update the height in the subtree and add it to the dictionary at the right depth
                             for edge in node.tree.preorder_edge_iter():
                                 edge.length = parent_height
                                 break
