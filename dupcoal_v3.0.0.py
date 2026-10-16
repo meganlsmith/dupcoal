@@ -403,7 +403,7 @@ class mlmsc:
 
         # return this if there is no duplication
         if self.lambda_par == 0:
-            return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count, [], [], original_parent, [])
+            return(root, duplication_count, cnh_count, rkh_count, ils_count, ils_dlcpar_count, [], [], original_parent, [], [])
 
         # place duplications on tree
         original_subtrees, mutated_subtrees, current_duplication_count, current_cnh_count, current_rkh_count, current_ils_count, current_ils_dlcpar_count, ages, branches = self._birth_mlmsc(parent_tree, original_parent)
