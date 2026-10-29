@@ -791,7 +791,7 @@ def write_trees(tree, treefile):
     if tree is None:
         treefile.write("None\n")
     else:
-        treefile.write(tree.as_string(schema="newick", suppress_rooting=True))
+        treefile.write(tree.as_string(schema="newick", suppress_rooting=True, suppress_internal_node_labels=True))
 
 def write_log(rep,total_dups, total_obs_dups, total_losses,  hemiplasy, rk_hemiplasy, all_nni, all_ils,logfile):
     logfile.write(f"{rep},{total_dups},{total_obs_dups},{total_losses},{hemiplasy},{rk_hemiplasy},{all_nni},{all_ils}\n")
