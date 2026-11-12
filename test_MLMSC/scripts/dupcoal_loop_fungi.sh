@@ -16,14 +16,14 @@ DUPCOAL_BIN="$HOME/Documents/GitHub/dupcoal/dupcoal_v3.0.0.py"
 for lb in "${lb_values[@]}"; do
 
     # adjust lb
-    lb_adj=$(echo "$lb * 1e-3" | bc)
+    lb_adj=$(echo "scale=10; $lb * 0.001" | bc)
 
     for ld in "${ld_values[@]}"; do
 
         # adjust ld
         ld_adj=$(echo "$ld * $lb_adj" | bc)
         # set ld_name
-        if [ "$ld" -eq 1 ]; then
+        if [ "$ld" = "1" ]; then
             ld_name="lb"
         else
             ld_name="$ld"

@@ -13,7 +13,7 @@ bash scripts/simphy_loop_fungi_disco.sh
 2. Plot results
 
 # comparing numbers of duplications and gene copies
-python scripts/plot_dups_copies.py --simphy simulations/simphy_fungi_results --dupcoal simulations/dupcoal_fungi_results --mlmsc simulations/mlmsc_fungi_results --output_prefix fungi_results --astral ~/Documents/programs/Astral/astral.5.7.8.jar --species fungi/fungi_corrected_dupcoal_1.newick 
+python scripts/plot_dups_copies.py --simphy simulations/simphy_fungi_results --dupcoal dupcoal_fungi_results --mlmsc simulations/mlmsc_fungi_results --output_prefix fungi_results --astral ~/Documents/programs/Astral/astral.5.7.8.jar --species fungi/fungi_corrected_dupcoal_1.newick 
 
 # comparing discordance
 python scripts/plot_dups_copies.py --simphy simulations/simphy_fungi_results_disco --dupcoal simulations/dupcoal_fungi_results_disco --mlmsc simulations/mlmsc_fungi_results_disco --output_prefix fungi_results_disco --astral ~/Documents/programs/Astral/astral.5.7.8.jar --species fungi/fungi_corrected_dupcoal_1.newick --discordance

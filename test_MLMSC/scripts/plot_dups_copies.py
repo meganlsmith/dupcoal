@@ -199,7 +199,7 @@ def plot_summaries(df, args):
 
     for j, ld_val in enumerate(df['ld'].unique()):
         subset = df[(df["ld"]==ld_val)].copy()
-        for k, metric in enumerate(["obs_dup", "gene_copies"]):
+        for k, metric in enumerate(["observed_duplications", "gene_copies"]):
             ax = axes[j,k]
             sns.lineplot(data=subset, x="lb", y=metric, hue="program", ax=ax, errorbar="se", err_style="bars", style="branch_length")
             ax.set_title(f"{metric.replace('_', ' ').title()} (ld={ld_val})")
@@ -211,7 +211,7 @@ def plot_astral(df, args):
     fig, axes = plt.subplots(df["ld"].nunique(), 2, figsize=(15, 6), sharex=True)
 
     for j, ld_val in enumerate(df['ld'].unique()):
-        subset = df[(df["ld"]==ld_val) & df["c"]==1].copy()
+        subset = df[(df["ld"]==ld_val) & (df["c"]==1)].copy()
         for k, metric in enumerate(["total_quartets", "normalized_quartet_score"]):
             if df["ld"].nunique()>1:
                 ax = axes[j,k]
@@ -259,7 +259,7 @@ def main():
     df["Ne"] = df["Ne"].astype(float)
     df["ld"] = df["ld"].astype(str)
     df["c"] = df["c"].astype(float)
-    df["duplications"] = df["duplications"].astype(int)
+    df["duplications"] = df["duplications"].astype("Int64")
     df["gene_copies"] = df["gene_copies"].astype(int)
     if args.discordance:
         df["total_quartets"] = df["total_quartets"].astype(int)
