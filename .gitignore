@@ -6,3 +6,5 @@ test_MLMSC/.Rhistory
 .DS_Store
 .DS_Store
 /example2
+/test_MLMSC/results_old
+sp_tree_short.tre
