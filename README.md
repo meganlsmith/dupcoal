@@ -27,6 +27,7 @@ For an extended description of the simulator, please see 'Extended_Description_v
   + type = str
   + help = Folder for storing results.
 * linked
+
   + type = store_true (defaults to False unless flag is provided)
   + help = Simulate linked loci. If specified, all daughter trees will be identical to the parent tree.
 
@@ -40,10 +41,10 @@ For an extended description of the simulator, please see 'Extended_Description_v
 * duplications: number of duplications
 * observed_duplications: number of observable duplications (i.e., those not entirely obscured by subsequent losses)
 * losses: number of losses
-* Copy Number Hemiplasy (CNH): number of cases in which a mutation is placed on a branch that does not exist in the species tree.
-* Rasmussen and Kellis CNH: number of cases in which a mutation is placed on a branch that does exist in the species tree, but does not match the current branch of the species tree. This is the phenomenon described as hemiplasy in Rasmussen and Kellis (2012, Figure 2B)
-* All ILS (ILS): This includes the number of discordant branches in the parent and daughter trees and the number of NNIs that should be needed to reconcile discordance that occurs when coalescing subtrees.
-* All ILS DLCPar (ILS_DLCPAR): This includes the number of parent or daughter trees that are discordant and the number of times that a subtree joined a branch that did not match it in terms of taxon composition.
+* Copy Number Hemiplasy (CNH): number of cases in which a mutation is placed on a branch that does not exist in the species tree. These may or may not be observed, as they could be eliminated due to losses. Thus, this may be an overcounting of actual observable events on the trees.
+* Rasmussen and Kellis CNH: number of cases in which a mutation is placed on a branch that does exist in the species tree, but does not match the current branch of the species tree. This is the phenomenon described as hemiplasy in Rasmussen and Kellis (2012, Figure 2B). These may or may not be observed, as they could be eliminated due to losses. Thus, this may be an overcounting of actual observable events on the trees.
+* All ILS (ILS): This includes the number of discordant branches in the parent and daughter trees and the number of NNIs that should be needed to reconcile discordance that occurs when coalescing subtrees. These are only the observable events (i.e., those not entirely obscured by subsequent losses).
+* All ILS DLCPar (ILS_DLCPAR): This includes the number of parent or daughter trees that are discordant and the number of times that a subtree joined a branch that did not match it in terms of taxon composition. These are only the observable events (i.e., those not entirely obscured by subsequent losses).
 
 # Example Usage
 
